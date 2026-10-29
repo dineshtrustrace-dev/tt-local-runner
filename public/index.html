@@ -1,0 +1,480 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>TT Local Runner</title>
+    <style>
+      :root {
+        --bg: #f5f6f8;
+        --panel: #ffffff;
+        --border: #e2e5ea;
+        --text: #1d2330;
+        --muted: #6b7280;
+        --accent: #2563eb;
+        --accent-text: #ffffff;
+        --green: #16a34a;
+        --amber: #d97706;
+        --red: #dc2626;
+        --grey: #9ca3af;
+        --log-bg: #0f141c;
+        --log-text: #d6dbe3;
+        --chip: #eef1f5;
+      }
+      @media (prefers-color-scheme: dark) {
+        :root {
+          --bg: #0d1117;
+          --panel: #161b22;
+          --border: #2a313c;
+          --text: #e6e9ee;
+          --muted: #8b949e;
+          --accent: #3b82f6;
+          --chip: #1f2630;
+          --log-bg: #090c10;
+        }
+      }
+      * { box-sizing: border-box; }
+      body {
+        margin: 0;
+        background: var(--bg);
+        color: var(--text);
+        font: 14px/1.4 -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+        display: grid;
+        grid-template-rows: auto 1fr auto;
+        height: 100vh;
+      }
+      header {
+        display: flex;
+        align-items: center;
+        gap: 12px;
+        padding: 12px 20px;
+        background: var(--panel);
+        border-bottom: 1px solid var(--border);
+        flex-wrap: wrap;
+      }
+      header h1 { font-size: 17px; margin: 0; }
+      .pill {
+        font-size: 12px;
+        padding: 3px 10px;
+        border-radius: 999px;
+        background: var(--chip);
+        color: var(--muted);
+        display: inline-flex;
+        align-items: center;
+        gap: 6px;
+      }
+      .spacer { flex: 1; }
+      button {
+        font: inherit;
+        border: 1px solid var(--border);
+        background: var(--panel);
+        color: var(--text);
+        padding: 5px 12px;
+        border-radius: 6px;
+        cursor: pointer;
+      }
+      button:hover:not(:disabled) { border-color: var(--accent); }
+      button:disabled { opacity: 0.45; cursor: default; }
+      button.primary { background: var(--accent); color: var(--accent-text); border-color: var(--accent); }
+      button.danger { color: var(--red); }
+      button.small { padding: 2px 9px; font-size: 12px; }
+      main { overflow: auto; padding: 16px 20px; }
+      section { margin-bottom: 18px; }
+      section > h2 { font-size: 13px; text-transform: uppercase; letter-spacing: 0.05em; margin: 0 0 2px; }
+      section > p { margin: 0 0 10px; color: var(--muted); font-size: 12px; }
+      .section-head { display: flex; align-items: baseline; gap: 10px; }
+      .section-head .spacer { flex: 1; }
+      h3 { font-size: 12px; color: var(--muted); margin: 10px 0 6px; font-weight: 600; }
+      .grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(250px, 1fr)); gap: 10px; }
+      .card {
+        background: var(--panel);
+        border: 1px solid var(--border);
+        border-radius: 8px;
+        padding: 10px 12px;
+        cursor: pointer;
+        display: flex;
+        flex-direction: column;
+        gap: 6px;
+      }
+      .card.selected { border-color: var(--accent); box-shadow: 0 0 0 1px var(--accent); }
+      .card-top { display: flex; align-items: center; gap: 8px; }
+      .card-top .name { font-weight: 600; flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+      .dot { width: 10px; height: 10px; border-radius: 50%; background: var(--grey); flex: none; }
+      .dot.running { background: var(--green); }
+      .dot.starting { background: var(--amber); animation: pulse 1s infinite alternate; }
+      .dot.failed { background: var(--red); }
+      @keyframes pulse { to { opacity: 0.35; } }
+      .detail { color: var(--muted); font-size: 12px; }
+      .msg { font-size: 12px; min-height: 16px; }
+      .msg.failed { color: var(--red); }
+      .msg.running { color: var(--green); }
+      .msg.starting { color: var(--amber); }
+      .ports { display: flex; flex-wrap: wrap; gap: 4px; }
+      .port { font: 11px ui-monospace, Menlo, monospace; padding: 1px 6px; border-radius: 4px; background: var(--chip); color: var(--muted); }
+      .port.open { color: var(--green); }
+      .subs { display: flex; flex-wrap: wrap; gap: 4px; }
+      .sub {
+        display: inline-flex; align-items: center; gap: 5px;
+        font-size: 11px; padding: 2px 8px; border-radius: 999px;
+        background: var(--chip); color: var(--text); border: 1px solid transparent;
+      }
+      .sub .dot { width: 7px; height: 7px; }
+      .sub:hover:not(:disabled) { border-color: var(--accent); }
+      .sub.selected { border-color: var(--accent); color: var(--accent); }
+      .git { display: flex; align-items: center; gap: 8px; font: 11px ui-monospace, Menlo, monospace; color: var(--muted); min-width: 0; }
+      .git .branch { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+      .git .add { color: var(--green); }
+      .git .del { color: var(--red); }
+      .actions { display: flex; gap: 6px; align-items: center; flex-wrap: wrap; }
+      .actions label { margin-left: auto; font-size: 11px; color: var(--muted); display: flex; align-items: center; gap: 4px; }
+      .actions a { font-size: 12px; color: var(--accent); }
+      footer { position: relative; background: var(--panel); border-top: 1px solid var(--border); display: flex; flex-direction: column; height: 38vh; min-height: 120px; }
+      footer.collapsed { height: auto !important; min-height: 0; }
+      footer.collapsed pre#log, footer.collapsed .log-resize { display: none; }
+      .log-resize { position: absolute; top: -4px; left: 0; right: 0; height: 8px; cursor: ns-resize; z-index: 1; }
+      .log-resize:hover, footer.resizing .log-resize { background: var(--accent); opacity: 0.4; }
+      footer.resizing { user-select: none; }
+      .log-title { cursor: pointer; user-select: none; }
+      .log-bar { display: flex; align-items: center; gap: 8px; padding: 6px 12px; border-bottom: 1px solid var(--border); flex-wrap: wrap; }
+      .log-bar select, .log-bar input { font: inherit; padding: 3px 6px; border: 1px solid var(--border); border-radius: 6px; background: var(--panel); color: var(--text); }
+      .log-bar input { width: 180px; }
+      .log-bar .grow { flex: 1; }
+      pre#log {
+        margin: 0;
+        flex: 1;
+        overflow: auto;
+        background: var(--log-bg);
+        color: var(--log-text);
+        font: 12px/1.45 ui-monospace, Menlo, monospace;
+        padding: 8px 12px;
+        white-space: pre-wrap;
+        word-break: break-word;
+      }
+      pre#log .err { color: #f87171; }
+      pre#log .warn { color: #fbbf24; }
+      pre#log .ok { color: #4ade80; }
+      pre#log .runner { color: #93c5fd; }
+      @media (max-width: 600px) {
+        header, main { padding-left: 16px; padding-right: 16px; }
+        .grid { grid-template-columns: 1fr; }
+      }
+    </style>
+  </head>
+  <body>
+    <header>
+      <h1>TT Local Runner</h1>
+      <span class="pill" id="podman-pill"><span class="dot" id="podman-dot"></span><span id="podman-text">Podman machine: …</span></span>
+      <span class="pill" id="summary"></span>
+      <span class="spacer"></span>
+      <button class="primary" id="run-all">▶ Run &amp; connect all</button>
+      <button class="danger" id="stop-all">■ Stop / disconnect all</button>
+    </header>
+
+    <main id="sections"></main>
+
+    <footer id="log-panel">
+      <div class="log-resize" id="log-resize" title="Drag to resize"></div>
+      <div class="log-bar">
+        <strong class="log-title" id="log-title" title="Show / hide logs">Logs</strong>
+        <select id="log-select"></select>
+        <input id="log-filter" placeholder="Filter lines…" />
+        <label><input type="checkbox" id="log-follow" checked /> Follow</label>
+        <span class="grow"></span>
+        <button class="small" id="log-errors">Errors only</button>
+        <button class="small" id="log-clear">Clear</button>
+        <button class="small" id="log-toggle" title="Show / hide logs"></button>
+      </div>
+      <pre id="log"></pre>
+    </footer>
+
+    <script>
+      const $ = (s) => document.querySelector(s);
+      const ANSI = /\x1b\[[0-9;?]*[A-Za-z]/g;
+      const MAX_LOG = 400_000;
+
+      let cfg = { sections: [], services: [] };
+      let status = {};
+      let selected = 'runner';
+      let errorsOnly = false;
+      const logs = {}; // id → text
+
+      const store = {
+        get(k, d) {
+          try { const v = localStorage.getItem(k); return v === null ? d : JSON.parse(v); } catch { return d; }
+        },
+        set(k, v) {
+          try { localStorage.setItem(k, JSON.stringify(v)); } catch { /* storage unavailable */ }
+        }
+      };
+      let included = store.get('included', null);
+      const logOwner = {}; // container log id → card id
+      const defaultLog = (s) => (s.containers ? s.containers[0].name : s.id);
+
+      const post = (url, body) =>
+        fetch(url, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body || {}) })
+          .then((r) => r.ok || r.json().then((j) => alert(j.error || 'Request failed')));
+
+      // ── Render cards ────────────────────────────────────────────────
+      function card(s) {
+        const el = document.createElement('div');
+        el.className = 'card';
+        el.dataset.id = s.id;
+        el.innerHTML = `
+          <div class="card-top"><span class="dot"></span><span class="name"></span></div>
+          ${s.detail ? `<div class="detail"></div>` : ''}
+          ${s.dependsOn || s.optionalDeps ? `<div class="detail needs"></div>` : ''}
+          ${s.cwd ? `<div class="git" hidden></div>` : ''}
+          ${s.containers ? `<div class="subs">${s.containers.map((c) => `<button class="sub" data-log="${c.name}" title="Show ${c.name} log"><span class="dot"></span>${c.name}</button>`).join('')}</div>` : ''}
+          <div class="ports"></div>
+          <div class="msg"></div>
+          <div class="actions">
+            <button class="small" data-act="toggle">Start</button>
+            ${s.kind === 'process' ? '<button class="small" data-act="restart">Restart</button>' : ''}
+            ${s.build ? '<button class="small" data-act="build">Build</button>' : ''}
+            ${s.link ? `<a target="_blank" rel="noopener">Open ↗</a>` : ''}
+            <label title="Include in Run & connect all"><input type="checkbox" data-act="include" /> in all</label>
+          </div>`;
+        el.querySelector('.name').textContent = s.name;
+        if (s.detail) el.querySelector('.detail').textContent = s.detail;
+        if (s.dependsOn || s.optionalDeps) {
+          const name = (d) => cfg.services.find((x) => x.id === d).name;
+          el.querySelector('.needs').textContent =
+            'Needs: ' + [...(s.dependsOn || []).map(name), ...(s.optionalDeps || []).map((d) => `${name(d)} (optional)`)].join(' · ');
+        }
+        if (s.link) el.querySelector('a').href = s.link;
+        el.querySelector('[data-act=include]').checked = included.includes(s.id);
+        el.addEventListener('click', (e) => {
+          const act = e.target.dataset && e.target.dataset.act;
+          if (act === 'include') {
+            included = e.target.checked ? [...included, s.id] : included.filter((x) => x !== s.id);
+            store.set('included', included);
+            return;
+          }
+          if (e.target.tagName === 'A' || e.target.tagName === 'LABEL') return;
+          const sub = e.target.closest('[data-log]');
+          if (sub) return selectLog(sub.dataset.log);
+          if (act) {
+            e.stopPropagation();
+            const st = status[s.id] || {};
+            const verb = act === 'toggle' ? (st.status === 'stopped' || st.status === 'failed' ? 'start' : 'stop') : act;
+            post(`/api/services/${s.id}/${verb}`);
+            if (!s.noLog) selectLog(defaultLog(s));
+            return;
+          }
+          if (!s.noLog) selectLog(defaultLog(s));
+        });
+        return el;
+      }
+
+      function renderSections() {
+        const root = $('#sections');
+        root.innerHTML = '';
+        for (const sec of cfg.sections) {
+          const items = cfg.services.filter((s) => s.section === sec.id);
+          const el = document.createElement('section');
+          el.dataset.sec = sec.id;
+          el.innerHTML = `<div class="section-head"><h2></h2><span class="spacer"></span>
+              <button class="small" data-sec="start">Start section</button>
+              <button class="small" data-sec="stop">Stop section</button></div><p></p>`;
+          el.querySelector('h2').textContent = sec.title;
+          el.querySelector('p').textContent = sec.subtitle || '';
+          const ids = items.map((s) => s.id).filter((id) => id !== 'hoop-login');
+          el.querySelector('[data-sec=start]').onclick = () => post('/api/run-all', { ids: items.map((s) => s.id) });
+          el.querySelector('[data-sec=stop]').onclick = () => post('/api/stop-all', { ids });
+          const groups = [...new Set(items.map((s) => s.group || ''))];
+          for (const g of groups) {
+            if (g) {
+              const h = document.createElement('h3');
+              h.textContent = `${g} (compose)`;
+              el.appendChild(h);
+            }
+            const grid = document.createElement('div');
+            grid.className = 'grid';
+            items.filter((s) => (s.group || '') === g).forEach((s) => grid.appendChild(card(s)));
+            el.appendChild(grid);
+          }
+          root.appendChild(el);
+        }
+        const opt = (id, name) => `<option value="${id}">${name}</option>`;
+        $('#log-select').innerHTML =
+          opt('runner', 'Runner (orchestration)') +
+          cfg.services
+            .filter((s) => !s.noLog)
+            .map((s) => (s.containers ? `<optgroup label="${s.name}">${s.containers.map((c) => opt(c.name, c.name)).join('')}</optgroup>` : opt(s.id, s.name)))
+            .join('');
+        $('#log-select').value = selected;
+      }
+
+      function applyStatus(msg) {
+        status = Object.fromEntries(msg.services.map((s) => [s.id, s]));
+        let up = 0;
+        for (const s of msg.services) {
+          const el = document.querySelector(`.card[data-id="${s.id}"]`);
+          if (!el) continue;
+          if (s.status === 'running') up++;
+          el.querySelector('.dot').className = `dot ${s.status}`;
+          const m = el.querySelector('.msg');
+          m.className = `msg ${s.status}`;
+          m.textContent = s.message || '';
+          el.querySelector('.ports').innerHTML = s.ports
+            .map((p) => `<span class="port ${p.open ? 'open' : ''}">:${p.port}</span>`)
+            .join('');
+          const t = el.querySelector('[data-act=toggle]');
+          const def = cfg.services.find((x) => x.id === s.id);
+          const isOn = s.status === 'running' || s.status === 'starting';
+          const [on, off] = def.kind === 'hoop' ? ['Connect', 'Disconnect'] : def.kind === 'hoop-login' ? ['Login', 'Logout'] : ['Start', 'Stop'];
+          t.textContent = isOn ? off : on;
+          t.classList.toggle('danger', isOn);
+          t.disabled = s.busy;
+          const b = el.querySelector('[data-act=build]');
+          if (b) b.disabled = s.busy || isOn;
+          const g = el.querySelector('.git');
+          if (g) {
+            g.hidden = !s.git;
+            if (s.git) {
+              const dirty = s.git.added || s.git.deleted;
+              g.title = dirty ? `Uncommitted changes vs HEAD on ${s.git.branch}` : `${s.git.branch} — no uncommitted changes`;
+              g.innerHTML = `<span class="branch">⎇ ${esc(s.git.branch)}</span>` +
+                (dirty ? `<span class="add">+${s.git.added}</span><span class="del">−${s.git.deleted}</span>` : '');
+            }
+          }
+          for (const c of s.containers || []) {
+            const chip = el.querySelector(`.sub[data-log="${c.name}"]`);
+            if (!chip) continue;
+            chip.querySelector('.dot').className = `dot ${c.state === 'running' ? 'running' : c.state === 'missing' ? 'failed' : ''}`;
+            chip.title = `${c.name}: ${c.status} — click for log`;
+          }
+        }
+        // Stop buttons only make sense when something (besides the hoop SSO session) is up.
+        const isUp = (s) => s.id !== 'hoop-login' && s.status !== 'stopped' && !(s.status === 'failed' && !s.ports.some((p) => p.open));
+        $('#stop-all').disabled = !msg.services.some(isUp);
+        document.querySelectorAll('section[data-sec]').forEach((sec) => {
+          const ids = cfg.services.filter((x) => x.section === sec.dataset.sec).map((x) => x.id);
+          sec.querySelector('[data-sec=stop]').disabled = !msg.services.some((s) => ids.includes(s.id) && isUp(s));
+          sec.querySelector('[data-sec=start]').disabled = msg.services
+            .filter((s) => ids.includes(s.id))
+            .every((s) => s.status === 'running' || s.status === 'starting');
+        });
+        $('#summary').textContent = `${up}/${msg.services.length} up`;
+        $('#podman-text').textContent = `Podman machine: ${msg.podmanMachine}`;
+        $('#podman-dot').className = `dot ${msg.podmanMachine === 'running' ? 'running' : 'stopped'}`;
+        $('#run-all').disabled = msg.runAllActive;
+        $('#run-all').textContent = msg.runAllActive ? '⏳ Running…' : '▶ Run & connect all';
+      }
+
+      // ── Logs ─────────────────────────────────────────────────────────
+      const esc = (t) => t.replace(/[&<>]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;' })[c]);
+      const ERR = /\b(ERROR|FATAL|Exception|Error:|ERR!|failed|FAILED|✗)/;
+      const WARN = /\b(WARN|WARNING|deprecated)\b/i;
+
+      function renderLog() {
+        const filter = $('#log-filter').value.toLowerCase();
+        const lines = (logs[selected] || '').split('\n');
+        const out = [];
+        for (const line of lines) {
+          if (filter && !line.toLowerCase().includes(filter)) continue;
+          const isErr = ERR.test(line);
+          if (errorsOnly && !isErr) continue;
+          const cls = isErr ? 'err' : WARN.test(line) ? 'warn' : /\[runner\]|^\$ /.test(line) ? 'runner' : /✓|successfully|Compiled|ready|Started/.test(line) ? 'ok' : '';
+          out.push(cls ? `<span class="${cls}">${esc(line)}</span>` : esc(line));
+        }
+        const pre = $('#log');
+        pre.innerHTML = out.join('\n');
+        if ($('#log-follow').checked) pre.scrollTop = pre.scrollHeight;
+      }
+
+      let renderQueued = false;
+      const queueRender = () => {
+        if (renderQueued) return;
+        renderQueued = true;
+        requestAnimationFrame(() => { renderQueued = false; renderLog(); });
+      };
+
+      async function selectLog(id) {
+        selected = id;
+        $('#log-select').value = id;
+        const owner = logOwner[id] || id;
+        document.querySelectorAll('.card').forEach((c) => c.classList.toggle('selected', c.dataset.id === owner));
+        document.querySelectorAll('.sub').forEach((c) => c.classList.toggle('selected', c.dataset.log === id));
+        if (logs[id] === undefined) {
+          const r = await fetch(`/api/logs/${id}`).then((r) => r.json());
+          logs[id] = r.text.replace(ANSI, '');
+        }
+        renderLog();
+      }
+
+      $('#log-select').onchange = (e) => selectLog(e.target.value);
+      $('#log-filter').oninput = renderLog;
+      $('#log-errors').onclick = (e) => {
+        errorsOnly = !errorsOnly;
+        e.target.classList.toggle('primary', errorsOnly);
+        renderLog();
+      };
+      $('#log-clear').onclick = async () => {
+        await fetch(`/api/logs/${selected}`, { method: 'DELETE' });
+        logs[selected] = '';
+        renderLog();
+      };
+
+      // ── Log panel: collapse + drag-resize (both remembered) ──────────
+      const panel = $('#log-panel');
+      function setCollapsed(c) {
+        panel.classList.toggle('collapsed', c);
+        $('#log-toggle').textContent = c ? '▴ Show logs' : '▾ Hide';
+        store.set('logCollapsed', c);
+        if (!c) renderLog();
+      }
+      const logHeight = store.get('logHeight', null);
+      if (logHeight) panel.style.height = `${logHeight}px`;
+      setCollapsed(store.get('logCollapsed', false));
+      $('#log-toggle').onclick = $('#log-title').onclick = () => setCollapsed(!panel.classList.contains('collapsed'));
+
+      $('#log-resize').onpointerdown = (e) => {
+        e.preventDefault();
+        panel.classList.add('resizing');
+        const move = (ev) => {
+          const h = Math.max(120, Math.min(window.innerHeight - 160, window.innerHeight - ev.clientY));
+          panel.style.height = `${h}px`;
+        };
+        const up = () => {
+          panel.classList.remove('resizing');
+          window.removeEventListener('pointermove', move);
+          window.removeEventListener('pointerup', up);
+          store.set('logHeight', panel.offsetHeight);
+        };
+        window.addEventListener('pointermove', move);
+        window.addEventListener('pointerup', up);
+      };
+
+      $('#run-all').onclick =() => post('/api/run-all', { ids: included }).then(() => selectLog('runner'));
+      $('#stop-all').onclick = () => {
+        if (confirm('Stop every service and disconnect all hoop tunnels?')) post('/api/stop-all').then(() => selectLog('runner'));
+      };
+
+      // ── Boot ─────────────────────────────────────────────────────────
+      (async () => {
+        cfg = await fetch('/api/config').then((r) => r.json());
+        const ids = cfg.services.map((s) => s.id);
+        // Cards added to config.js since the last visit start ticked "in all".
+        const known = store.get('known', included);
+        if (!Array.isArray(included)) included = ids;
+        else included = [...included.filter((id) => ids.includes(id)), ...ids.filter((id) => !known.includes(id))];
+        store.set('included', included);
+        store.set('known', ids);
+        for (const s of cfg.services) for (const c of s.containers || []) logOwner[c.name] = s.id;
+        renderSections();
+        selectLog('runner');
+        const es = new EventSource('/events');
+        es.onmessage = (e) => {
+          const msg = JSON.parse(e.data);
+          if (msg.type === 'status') applyStatus(msg);
+          if (msg.type === 'log' && logs[msg.id] !== undefined) {
+            logs[msg.id] = (logs[msg.id] + msg.text.replace(ANSI, '')).slice(-MAX_LOG);
+            if (msg.id === selected) queueRender();
+          }
+        };
+        es.onerror = () => { $('#summary').textContent = 'Runner offline — is `node server.js` running?'; };
+      })();
+    </script>
+  </body>
+</html>
