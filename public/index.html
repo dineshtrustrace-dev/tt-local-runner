@@ -4,170 +4,380 @@
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <title>TT Local Runner</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet" />
     <style>
       :root {
-        --bg: #f5f6f8;
+        --bg: #f3f5f9;
+        --bg-glow-1: rgba(99, 102, 241, 0.10);
+        --bg-glow-2: rgba(16, 185, 129, 0.08);
         --panel: #ffffff;
-        --border: #e2e5ea;
-        --text: #1d2330;
-        --muted: #6b7280;
-        --accent: #2563eb;
+        --panel-2: #f8fafc;
+        --glass: rgba(255, 255, 255, 0.78);
+        --border: #e3e7ee;
+        --border-strong: #cfd6e1;
+        --text: #0f172a;
+        --muted: #64748b;
+        --faint: #94a3b8;
+        --accent: #4f46e5;
+        --accent-2: #7c3aed;
+        --accent-soft: rgba(79, 70, 229, 0.10);
         --accent-text: #ffffff;
-        --green: #16a34a;
+        --green: #059669;
+        --green-soft: rgba(5, 150, 105, 0.10);
         --amber: #d97706;
+        --amber-soft: rgba(217, 119, 6, 0.12);
         --red: #dc2626;
-        --grey: #9ca3af;
-        --log-bg: #0f141c;
-        --log-text: #d6dbe3;
-        --chip: #eef1f5;
+        --red-soft: rgba(220, 38, 38, 0.09);
+        --grey: #a3adbb;
+        --chip: #eef1f6;
+        --shadow: 0 1px 2px rgba(15, 23, 42, 0.04), 0 4px 16px rgba(15, 23, 42, 0.05);
+        --shadow-hover: 0 2px 4px rgba(15, 23, 42, 0.05), 0 12px 32px rgba(15, 23, 42, 0.10);
+        --log-bg: #0b0f17;
+        --log-bar: #111723;
+        --log-border: #1e2633;
+        --log-text: #cdd5e1;
+        --log-muted: #7a8699;
+        --mono: 'JetBrains Mono', ui-monospace, Menlo, monospace;
       }
       @media (prefers-color-scheme: dark) {
         :root {
-          --bg: #0d1117;
-          --panel: #161b22;
-          --border: #2a313c;
-          --text: #e6e9ee;
-          --muted: #8b949e;
-          --accent: #3b82f6;
-          --chip: #1f2630;
-          --log-bg: #090c10;
+          --bg: #080b12;
+          --bg-glow-1: rgba(99, 102, 241, 0.16);
+          --bg-glow-2: rgba(16, 185, 129, 0.08);
+          --panel: #0f141e;
+          --panel-2: #131a26;
+          --glass: rgba(12, 16, 25, 0.72);
+          --border: #1e2633;
+          --border-strong: #2b3546;
+          --text: #e7ecf3;
+          --muted: #8a96a8;
+          --faint: #5d6a7e;
+          --accent: #818cf8;
+          --accent-2: #a78bfa;
+          --accent-soft: rgba(129, 140, 248, 0.14);
+          --accent-text: #0b0f17;
+          --green: #34d399;
+          --green-soft: rgba(52, 211, 153, 0.12);
+          --amber: #fbbf24;
+          --amber-soft: rgba(251, 191, 36, 0.12);
+          --red: #f87171;
+          --red-soft: rgba(248, 113, 113, 0.12);
+          --grey: #4b5567;
+          --chip: #182030;
+          --shadow: 0 1px 2px rgba(0, 0, 0, 0.3);
+          --shadow-hover: 0 12px 32px rgba(0, 0, 0, 0.45);
+          --log-bg: #06080d;
+          --log-bar: #0c1018;
         }
       }
       * { box-sizing: border-box; }
       body {
         margin: 0;
-        background: var(--bg);
+        background:
+          radial-gradient(1100px 500px at 0% -10%, var(--bg-glow-1), transparent 60%),
+          radial-gradient(900px 500px at 100% 0%, var(--bg-glow-2), transparent 60%),
+          var(--bg);
         color: var(--text);
-        font: 14px/1.4 -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+        font: 14px/1.45 Inter, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+        -webkit-font-smoothing: antialiased;
         display: grid;
         grid-template-rows: auto 1fr auto;
         height: 100vh;
       }
+
+      /* ── Header ─────────────────────────────────────────────── */
       header {
         display: flex;
         align-items: center;
-        gap: 12px;
-        padding: 12px 20px;
-        background: var(--panel);
+        gap: 16px;
+        padding: 14px 24px;
+        background: var(--glass);
+        backdrop-filter: saturate(160%) blur(14px);
+        -webkit-backdrop-filter: saturate(160%) blur(14px);
         border-bottom: 1px solid var(--border);
         flex-wrap: wrap;
+        z-index: 2;
       }
-      header h1 { font-size: 17px; margin: 0; }
+      .brand { display: flex; align-items: center; gap: 12px; }
+      .logo {
+        width: 38px; height: 38px; border-radius: 11px; flex: none;
+        display: grid; place-items: center;
+        background: linear-gradient(135deg, var(--accent), var(--accent-2));
+        box-shadow: 0 6px 18px -4px var(--accent), inset 0 1px 0 rgba(255, 255, 255, 0.25);
+        color: #fff;
+      }
+      .logo svg { width: 18px; height: 18px; }
+      header h1 { font-size: 16px; margin: 0; font-weight: 700; letter-spacing: -0.01em; }
+      .brand-sub { font-size: 12px; color: var(--muted); }
+      .health { display: flex; align-items: center; gap: 10px; padding: 4px 14px 4px 4px; border-radius: 999px; background: var(--chip); }
+      .ring { width: 34px; height: 34px; transform: rotate(-90deg); }
+      .ring circle { fill: none; stroke-width: 4; }
+      .ring .track { stroke: var(--border-strong); }
+      .ring .fill { stroke: var(--green); stroke-linecap: round; transition: stroke-dashoffset 0.6s ease; }
+      .health-text { display: flex; flex-direction: column; line-height: 1.15; }
+      .health-text strong { font-size: 13px; font-variant-numeric: tabular-nums; }
+      .health-text span { font-size: 11px; color: var(--muted); }
       .pill {
         font-size: 12px;
-        padding: 3px 10px;
+        padding: 6px 12px;
         border-radius: 999px;
         background: var(--chip);
         color: var(--muted);
         display: inline-flex;
         align-items: center;
-        gap: 6px;
+        gap: 8px;
+        font-weight: 500;
       }
       .spacer { flex: 1; }
+
+      /* ── Buttons ────────────────────────────────────────────── */
       button {
         font: inherit;
+        font-weight: 500;
         border: 1px solid var(--border);
         background: var(--panel);
         color: var(--text);
-        padding: 5px 12px;
-        border-radius: 6px;
+        padding: 7px 14px;
+        border-radius: 9px;
         cursor: pointer;
+        transition: border-color 0.15s, background 0.15s, box-shadow 0.15s, transform 0.1s, color 0.15s;
       }
       button:hover:not(:disabled) { border-color: var(--accent); }
-      button:disabled { opacity: 0.45; cursor: default; }
-      button.primary { background: var(--accent); color: var(--accent-text); border-color: var(--accent); }
+      button:active:not(:disabled) { transform: translateY(1px); }
+      button:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+      button:disabled { opacity: 0.4; cursor: default; }
+      button.primary {
+        background: linear-gradient(135deg, var(--accent), var(--accent-2));
+        color: #fff;
+        border-color: transparent;
+        box-shadow: 0 6px 20px -6px var(--accent);
+      }
+      button.primary:hover:not(:disabled) { border-color: transparent; box-shadow: 0 8px 26px -6px var(--accent); filter: brightness(1.06); }
       button.danger { color: var(--red); }
-      button.small { padding: 2px 9px; font-size: 12px; }
-      main { overflow: auto; padding: 16px 20px; }
-      section { margin-bottom: 18px; }
-      section > h2 { font-size: 13px; text-transform: uppercase; letter-spacing: 0.05em; margin: 0 0 2px; }
-      section > p { margin: 0 0 10px; color: var(--muted); font-size: 12px; }
-      .section-head { display: flex; align-items: baseline; gap: 10px; }
+      button.danger:hover:not(:disabled) { border-color: var(--red); background: var(--red-soft); }
+      button.small { padding: 4px 10px; font-size: 12px; border-radius: 7px; }
+      button.ghost { background: transparent; }
+      header button { padding: 8px 16px; }
+
+      /* ── Sections ───────────────────────────────────────────── */
+      main { overflow: auto; padding: 22px 24px 28px; }
+      section { margin-bottom: 26px; animation: rise 0.4s ease both; }
+      section:nth-child(2) { animation-delay: 0.04s; }
+      section:nth-child(3) { animation-delay: 0.08s; }
+      section:nth-child(4) { animation-delay: 0.12s; }
+      @keyframes rise { from { opacity: 0; transform: translateY(6px); } }
+      .section-head { display: flex; align-items: center; gap: 12px; margin-bottom: 12px; flex-wrap: wrap; }
+      .sec-icon {
+        width: 34px; height: 34px; border-radius: 10px; flex: none;
+        display: grid; place-items: center;
+        background: var(--accent-soft); color: var(--accent);
+      }
+      .sec-icon svg { width: 17px; height: 17px; }
+      .sec-title { display: flex; flex-direction: column; min-width: 0; }
+      section h2 { font-size: 15px; font-weight: 700; margin: 0; letter-spacing: -0.01em; display: flex; align-items: center; gap: 8px; }
+      section .sec-sub { margin: 0; color: var(--muted); font-size: 12px; }
+      .sec-count { font-size: 11px; font-weight: 600; padding: 2px 8px; border-radius: 999px; background: var(--chip); color: var(--muted); font-variant-numeric: tabular-nums; }
+      .sec-count.all { background: var(--green-soft); color: var(--green); }
+      .sec-bar { flex: 0 1 120px; height: 4px; border-radius: 99px; background: var(--chip); overflow: hidden; }
+      .sec-bar i { display: block; height: 100%; width: 0; border-radius: inherit; background: linear-gradient(90deg, var(--green), #10b981); transition: width 0.5s ease; }
       .section-head .spacer { flex: 1; }
-      h3 { font-size: 12px; color: var(--muted); margin: 10px 0 6px; font-weight: 600; }
-      .grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(250px, 1fr)); gap: 10px; }
+      h3 {
+        font-size: 11px; color: var(--faint); margin: 14px 0 8px; font-weight: 600;
+        text-transform: uppercase; letter-spacing: 0.08em; display: flex; align-items: center; gap: 10px;
+      }
+      h3::after { content: ''; flex: 1; height: 1px; background: var(--border); }
+      .grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(270px, 1fr)); gap: 12px; }
+
+      /* ── Cards ──────────────────────────────────────────────── */
       .card {
-        background: var(--panel);
+        position: relative;
+        background: linear-gradient(180deg, var(--panel), var(--panel-2));
         border: 1px solid var(--border);
-        border-radius: 8px;
-        padding: 10px 12px;
+        border-radius: 14px;
+        padding: 14px 14px 12px;
         cursor: pointer;
         display: flex;
         flex-direction: column;
-        gap: 6px;
+        gap: 8px;
+        box-shadow: var(--shadow);
+        overflow: hidden;
+        transition: transform 0.18s ease, box-shadow 0.18s ease, border-color 0.18s;
       }
-      .card.selected { border-color: var(--accent); box-shadow: 0 0 0 1px var(--accent); }
-      .card-top { display: flex; align-items: center; gap: 8px; }
-      .card-top .name { font-weight: 600; flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-      .dot { width: 10px; height: 10px; border-radius: 50%; background: var(--grey); flex: none; }
-      .dot.running { background: var(--green); }
-      .dot.starting { background: var(--amber); animation: pulse 1s infinite alternate; }
-      .dot.failed { background: var(--red); }
+      .card::before {
+        content: ''; position: absolute; inset: 0 0 auto 0; height: 3px;
+        background: var(--grey); opacity: 0.5; transition: background 0.3s;
+      }
+      .card:hover { transform: translateY(-2px); box-shadow: var(--shadow-hover); border-color: var(--border-strong); }
+      .card[data-status='running']::before { background: linear-gradient(90deg, var(--green), #10b981); opacity: 1; }
+      .card[data-status='running'] { background: linear-gradient(180deg, var(--green-soft), transparent 70%), linear-gradient(180deg, var(--panel), var(--panel-2)); }
+      .card[data-status='failed']::before { background: var(--red); opacity: 1; }
+      .card[data-status='failed'] { background: linear-gradient(180deg, var(--red-soft), transparent 70%), linear-gradient(180deg, var(--panel), var(--panel-2)); }
+      .card[data-status='starting']::before {
+        opacity: 1;
+        background: linear-gradient(90deg, transparent, var(--amber), transparent) 0 0 / 50% 100% no-repeat, var(--amber-soft);
+        animation: sweep 1.2s linear infinite;
+      }
+      @keyframes sweep { from { background-position: -50% 0, 0 0; } to { background-position: 150% 0, 0 0; } }
+      .card.selected { border-color: var(--accent); box-shadow: 0 0 0 3px var(--accent-soft), var(--shadow-hover); }
+      .card-top { display: flex; align-items: center; gap: 10px; }
+      .card-top .name { font-weight: 600; font-size: 14px; flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; letter-spacing: -0.005em; }
+      .kind {
+        font-size: 10px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.06em;
+        padding: 2px 7px; border-radius: 6px; background: var(--chip); color: var(--muted); flex: none;
+      }
+      .dot { position: relative; width: 9px; height: 9px; border-radius: 50%; background: var(--grey); flex: none; }
+      .dot.running { background: var(--green); box-shadow: 0 0 0 3px var(--green-soft); }
+      .dot.running::after {
+        content: ''; position: absolute; inset: 0; border-radius: 50%; background: var(--green);
+        animation: ping 2.2s cubic-bezier(0, 0, 0.2, 1) infinite;
+      }
+      .dot.starting { background: var(--amber); box-shadow: 0 0 0 3px var(--amber-soft); animation: pulse 0.8s infinite alternate; }
+      .dot.failed { background: var(--red); box-shadow: 0 0 0 3px var(--red-soft); }
       @keyframes pulse { to { opacity: 0.35; } }
+      @keyframes ping { 75%, 100% { transform: scale(2.4); opacity: 0; } }
       .detail { color: var(--muted); font-size: 12px; }
-      .msg { font-size: 12px; min-height: 16px; }
+      .detail.needs { font-size: 11px; color: var(--faint); }
+      .msg { font-size: 12px; min-height: 17px; font-weight: 500; color: var(--muted); }
       .msg.failed { color: var(--red); }
       .msg.running { color: var(--green); }
       .msg.starting { color: var(--amber); }
-      .ports { display: flex; flex-wrap: wrap; gap: 4px; }
-      .port { font: 11px ui-monospace, Menlo, monospace; padding: 1px 6px; border-radius: 4px; background: var(--chip); color: var(--muted); }
-      .port.open { color: var(--green); }
-      .subs { display: flex; flex-wrap: wrap; gap: 4px; }
-      .sub {
+      .ports { display: flex; flex-wrap: wrap; gap: 5px; }
+      .ports:empty { display: none; }
+      .port {
+        font: 500 11px var(--mono); padding: 2px 8px; border-radius: 6px;
+        background: var(--chip); color: var(--faint);
         display: inline-flex; align-items: center; gap: 5px;
-        font-size: 11px; padding: 2px 8px; border-radius: 999px;
+      }
+      .port::before { content: ''; width: 5px; height: 5px; border-radius: 50%; background: currentColor; opacity: 0.6; }
+      .port.open { color: var(--green); background: var(--green-soft); }
+      .port.open::before { opacity: 1; }
+      .subs { display: flex; flex-wrap: wrap; gap: 5px; }
+      .sub {
+        display: inline-flex; align-items: center; gap: 6px;
+        font-size: 11px; padding: 3px 9px; border-radius: 999px;
         background: var(--chip); color: var(--text); border: 1px solid transparent;
       }
-      .sub .dot { width: 7px; height: 7px; }
+      .sub .dot { width: 7px; height: 7px; box-shadow: none; }
+      .sub .dot.running::after { display: none; }
       .sub:hover:not(:disabled) { border-color: var(--accent); }
-      .sub.selected { border-color: var(--accent); color: var(--accent); }
-      .git { display: flex; align-items: center; gap: 8px; font: 11px ui-monospace, Menlo, monospace; color: var(--muted); min-width: 0; }
+      .sub.selected { border-color: var(--accent); color: var(--accent); background: var(--accent-soft); }
+      .git {
+        display: inline-flex; align-self: flex-start; align-items: center; gap: 8px; max-width: 100%;
+        font: 11px var(--mono); color: var(--muted); min-width: 0;
+        padding: 2px 8px; border-radius: 6px; border: 1px dashed var(--border-strong);
+      }
+      .git[hidden] { display: none; }
       .git .branch { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
       .git .add { color: var(--green); }
       .git .del { color: var(--red); }
-      .actions { display: flex; gap: 6px; align-items: center; flex-wrap: wrap; }
-      .actions label { margin-left: auto; font-size: 11px; color: var(--muted); display: flex; align-items: center; gap: 4px; }
-      .actions a { font-size: 12px; color: var(--accent); }
-      footer { position: relative; background: var(--panel); border-top: 1px solid var(--border); display: flex; flex-direction: column; height: 38vh; min-height: 120px; }
+      .actions {
+        display: flex; gap: 6px; align-items: center; flex-wrap: wrap;
+        margin: auto -14px -12px; padding: 9px 14px; border-top: 1px solid var(--border);
+        background: color-mix(in srgb, var(--panel-2) 60%, transparent);
+      }
+      .actions button[data-act='toggle']:not(.danger) { background: var(--accent-soft); color: var(--accent); border-color: transparent; }
+      .actions button[data-act='toggle']:not(.danger):hover:not(:disabled) { border-color: var(--accent); }
+      .actions button[data-act='toggle'].danger { background: var(--red-soft); border-color: transparent; }
+      .actions button[data-act='toggle'].danger:hover:not(:disabled) { border-color: var(--red); }
+      .actions a { font-size: 12px; font-weight: 500; color: var(--accent); text-decoration: none; padding: 4px 6px; border-radius: 6px; }
+      .actions a:hover { background: var(--accent-soft); }
+      .actions label { margin-left: auto; font-size: 11px; color: var(--muted); display: flex; align-items: center; gap: 6px; cursor: pointer; user-select: none; }
+      /* "in all" as a switch */
+      .actions label input {
+        appearance: none; -webkit-appearance: none; margin: 0; cursor: pointer;
+        width: 26px; height: 15px; border-radius: 99px; background: var(--border-strong);
+        position: relative; transition: background 0.2s;
+      }
+      .actions label input::after {
+        content: ''; position: absolute; top: 2px; left: 2px; width: 11px; height: 11px; border-radius: 50%;
+        background: #fff; box-shadow: 0 1px 2px rgba(0, 0, 0, 0.3); transition: transform 0.2s;
+      }
+      .actions label input:checked { background: var(--accent); }
+      .actions label input:checked::after { transform: translateX(11px); }
+
+      /* ── Log panel ──────────────────────────────────────────── */
+      footer {
+        position: relative; background: var(--log-bg); border-top: 1px solid var(--log-border);
+        display: flex; flex-direction: column; height: 38vh; min-height: 120px; color: var(--log-text);
+        box-shadow: 0 -10px 30px -12px rgba(0, 0, 0, 0.25);
+      }
       footer.collapsed { height: auto !important; min-height: 0; }
       footer.collapsed pre#log, footer.collapsed .log-resize { display: none; }
       .log-resize { position: absolute; top: -4px; left: 0; right: 0; height: 8px; cursor: ns-resize; z-index: 1; }
-      .log-resize:hover, footer.resizing .log-resize { background: var(--accent); opacity: 0.4; }
+      .log-resize::after { content: ''; position: absolute; left: 50%; top: 2px; width: 40px; height: 4px; margin-left: -20px; border-radius: 4px; background: var(--log-border); }
+      .log-resize:hover::after, footer.resizing .log-resize::after { background: var(--accent); }
       footer.resizing { user-select: none; }
-      .log-title { cursor: pointer; user-select: none; }
-      .log-bar { display: flex; align-items: center; gap: 8px; padding: 6px 12px; border-bottom: 1px solid var(--border); flex-wrap: wrap; }
-      .log-bar select, .log-bar input { font: inherit; padding: 3px 6px; border: 1px solid var(--border); border-radius: 6px; background: var(--panel); color: var(--text); }
-      .log-bar input { width: 180px; }
+      .log-title { cursor: pointer; user-select: none; font-weight: 600; font-size: 13px; color: #fff; display: flex; align-items: center; gap: 10px; }
+      .lights { display: inline-flex; gap: 6px; }
+      .lights i { width: 10px; height: 10px; border-radius: 50%; background: #ff5f57; }
+      .lights i:nth-child(2) { background: #febc2e; }
+      .lights i:nth-child(3) { background: #28c840; }
+      .log-bar { display: flex; align-items: center; gap: 10px; padding: 8px 16px; background: var(--log-bar); border-bottom: 1px solid var(--log-border); flex-wrap: wrap; }
+      .log-bar select, .log-bar input:not([type]) {
+        font: inherit; font-size: 12px; padding: 5px 10px; border: 1px solid var(--log-border); border-radius: 8px;
+        background: var(--log-bg); color: var(--log-text);
+      }
+      .log-bar select:focus, .log-bar input:not([type]):focus { outline: none; border-color: var(--accent); }
+      .log-bar input:not([type]) { width: 200px; }
+      .log-bar label { font-size: 12px; color: var(--log-muted); display: flex; align-items: center; gap: 6px; }
+      .log-bar input[type='checkbox'] { accent-color: var(--accent); }
       .log-bar .grow { flex: 1; }
+      .log-bar button { background: transparent; color: var(--log-text); border-color: var(--log-border); }
+      .log-bar button:hover:not(:disabled) { border-color: var(--accent); }
+      .log-bar button.primary { background: rgba(248, 113, 113, 0.15); color: #fca5a5; border-color: rgba(248, 113, 113, 0.5); box-shadow: none; }
       pre#log {
         margin: 0;
         flex: 1;
         overflow: auto;
         background: var(--log-bg);
         color: var(--log-text);
-        font: 12px/1.45 ui-monospace, Menlo, monospace;
-        padding: 8px 12px;
+        font: 12px/1.6 var(--mono);
+        padding: 10px 16px;
         white-space: pre-wrap;
         word-break: break-word;
       }
+      pre#log::-webkit-scrollbar, main::-webkit-scrollbar { width: 10px; height: 10px; }
+      pre#log::-webkit-scrollbar-thumb { background: #232c3b; border-radius: 10px; border: 2px solid var(--log-bg); }
+      main::-webkit-scrollbar-thumb { background: var(--border-strong); border-radius: 10px; border: 2px solid var(--bg); }
       pre#log .err { color: #f87171; }
       pre#log .warn { color: #fbbf24; }
       pre#log .ok { color: #4ade80; }
-      pre#log .runner { color: #93c5fd; }
+      pre#log .runner { color: #a5b4fc; }
       @media (max-width: 600px) {
         header, main { padding-left: 16px; padding-right: 16px; }
         .grid { grid-template-columns: 1fr; }
+        .sec-bar { display: none; }
+        .log-bar input:not([type]) { width: 100%; }
+      }
+      @media (prefers-reduced-motion: reduce) {
+        *, *::before, *::after { animation: none !important; transition: none !important; }
       }
     </style>
   </head>
   <body>
     <header>
-      <h1>TT Local Runner</h1>
+      <div class="brand">
+        <div class="logo">
+          <svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M8 5.5v13a1 1 0 0 0 1.5.86l10.4-6.5a1 1 0 0 0 0-1.72L9.5 4.64A1 1 0 0 0 8 5.5z" /><rect x="3" y="5" width="2.6" height="14" rx="1.3" /></svg>
+        </div>
+        <div>
+          <h1>TT Local Runner</h1>
+          <div class="brand-sub">Local TrusTrace stack</div>
+        </div>
+      </div>
+      <div class="health" title="Services running">
+        <svg class="ring" viewBox="0 0 36 36" aria-hidden="true">
+          <circle class="track" cx="18" cy="18" r="15" />
+          <circle class="fill" id="health-ring" cx="18" cy="18" r="15" stroke-dasharray="94.25" stroke-dashoffset="94.25" />
+        </svg>
+        <div class="health-text"><strong id="summary">…</strong><span id="health-sub">services up</span></div>
+      </div>
       <span class="pill" id="podman-pill"><span class="dot" id="podman-dot"></span><span id="podman-text">Podman machine: …</span></span>
-      <span class="pill" id="summary"></span>
       <span class="spacer"></span>
-      <button class="primary" id="run-all">▶ Run &amp; connect all</button>
       <button class="danger" id="stop-all">■ Stop / disconnect all</button>
+      <button class="primary" id="run-all">▶ Run &amp; connect all</button>
     </header>
 
     <main id="sections"></main>
@@ -175,7 +385,7 @@
     <footer id="log-panel">
       <div class="log-resize" id="log-resize" title="Drag to resize"></div>
       <div class="log-bar">
-        <strong class="log-title" id="log-title" title="Show / hide logs">Logs</strong>
+        <strong class="log-title" id="log-title" title="Show / hide logs"><span class="lights"><i></i><i></i><i></i></span>Logs</strong>
         <select id="log-select"></select>
         <input id="log-filter" placeholder="Filter lines…" />
         <label><input type="checkbox" id="log-follow" checked /> Follow</label>
@@ -214,13 +424,26 @@
         fetch(url, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body || {}) })
           .then((r) => r.ok || r.json().then((j) => alert(j.error || 'Request failed')));
 
+      const svg = (d) => `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${d}</svg>`;
+      const SECTION_ICONS = {
+        hoop: svg('<path d="M10 13a5 5 0 0 0 7.5.5l3-3a5 5 0 0 0-7-7l-1.7 1.7"/><path d="M14 11a5 5 0 0 0-7.5-.5l-3 3a5 5 0 0 0 7 7l1.7-1.7"/>'),
+        podman: svg('<path d="M21 8 12 3 3 8v8l9 5 9-5z"/><path d="m3 8 9 5 9-5M12 13v8"/>'),
+        backend: svg('<rect x="3" y="4" width="18" height="7" rx="2"/><rect x="3" y="13" width="18" height="7" rx="2"/><path d="M7 7.5h.01M7 16.5h.01"/>'),
+        frontend: svg('<rect x="3" y="4" width="18" height="16" rx="2"/><path d="M3 9h18M7 6.5h.01M10 6.5h.01"/>')
+      };
+      const DEFAULT_ICON = svg('<circle cx="12" cy="12" r="8"/>');
+      const kindLabel = (s) =>
+        ({ 'hoop-login': 'SSO', hoop: 'Tunnel', container: 'Podman' })[s.kind] ||
+        (s.build ? 'Java' : s.section === 'frontend' ? 'Angular' : 'Node');
+
       // ── Render cards ────────────────────────────────────────────────
       function card(s) {
         const el = document.createElement('div');
         el.className = 'card';
         el.dataset.id = s.id;
+        el.dataset.status = 'stopped';
         el.innerHTML = `
-          <div class="card-top"><span class="dot"></span><span class="name"></span></div>
+          <div class="card-top"><span class="dot"></span><span class="name"></span><span class="kind"></span></div>
           ${s.detail ? `<div class="detail"></div>` : ''}
           ${s.dependsOn || s.optionalDeps ? `<div class="detail needs"></div>` : ''}
           ${s.cwd ? `<div class="git" hidden></div>` : ''}
@@ -229,12 +452,13 @@
           <div class="msg"></div>
           <div class="actions">
             <button class="small" data-act="toggle">Start</button>
-            ${s.kind === 'process' ? '<button class="small" data-act="restart">Restart</button>' : ''}
-            ${s.build ? '<button class="small" data-act="build">Build</button>' : ''}
+            ${s.kind === 'process' ? '<button class="small ghost" data-act="restart">Restart</button>' : ''}
+            ${s.build ? '<button class="small ghost" data-act="build">Build</button>' : ''}
             ${s.link ? `<a target="_blank" rel="noopener">Open ↗</a>` : ''}
             <label title="Include in Run & connect all"><input type="checkbox" data-act="include" /> in all</label>
           </div>`;
         el.querySelector('.name').textContent = s.name;
+        el.querySelector('.kind').textContent = kindLabel(s);
         if (s.detail) el.querySelector('.detail').textContent = s.detail;
         if (s.dependsOn || s.optionalDeps) {
           const name = (d) => cfg.services.find((x) => x.id === d).name;
@@ -273,11 +497,15 @@
           const items = cfg.services.filter((s) => s.section === sec.id);
           const el = document.createElement('section');
           el.dataset.sec = sec.id;
-          el.innerHTML = `<div class="section-head"><h2></h2><span class="spacer"></span>
-              <button class="small" data-sec="start">Start section</button>
-              <button class="small" data-sec="stop">Stop section</button></div><p></p>`;
-          el.querySelector('h2').textContent = sec.title;
-          el.querySelector('p').textContent = sec.subtitle || '';
+          el.innerHTML = `<div class="section-head">
+              <div class="sec-icon">${SECTION_ICONS[sec.id] || DEFAULT_ICON}</div>
+              <div class="sec-title"><h2><span class="sec-name"></span><span class="sec-count"></span></h2><p class="sec-sub"></p></div>
+              <span class="spacer"></span>
+              <div class="sec-bar"><i></i></div>
+              <button class="small" data-sec="start">▶ Start section</button>
+              <button class="small ghost" data-sec="stop">■ Stop section</button></div>`;
+          el.querySelector('.sec-name').textContent = sec.title;
+          el.querySelector('.sec-sub').textContent = sec.subtitle || '';
           const ids = items.map((s) => s.id).filter((id) => id !== 'hoop-login');
           el.querySelector('[data-sec=start]').onclick = () => post('/api/run-all', { ids: items.map((s) => s.id) });
           el.querySelector('[data-sec=stop]').onclick = () => post('/api/stop-all', { ids });
@@ -312,6 +540,7 @@
           const el = document.querySelector(`.card[data-id="${s.id}"]`);
           if (!el) continue;
           if (s.status === 'running') up++;
+          el.dataset.status = s.status;
           el.querySelector('.dot').className = `dot ${s.status}`;
           const m = el.querySelector('.msg');
           m.className = `msg ${s.status}`;
@@ -323,7 +552,7 @@
           const def = cfg.services.find((x) => x.id === s.id);
           const isOn = s.status === 'running' || s.status === 'starting';
           const [on, off] = def.kind === 'hoop' ? ['Connect', 'Disconnect'] : def.kind === 'hoop-login' ? ['Login', 'Logout'] : ['Start', 'Stop'];
-          t.textContent = isOn ? off : on;
+          t.textContent = isOn ? `■ ${off}` : `▶ ${on}`;
           t.classList.toggle('danger', isOn);
           t.disabled = s.busy;
           const b = el.querySelector('[data-act=build]');
@@ -350,12 +579,20 @@
         $('#stop-all').disabled = !msg.services.some(isUp);
         document.querySelectorAll('section[data-sec]').forEach((sec) => {
           const ids = cfg.services.filter((x) => x.section === sec.dataset.sec).map((x) => x.id);
-          sec.querySelector('[data-sec=stop]').disabled = !msg.services.some((s) => ids.includes(s.id) && isUp(s));
-          sec.querySelector('[data-sec=start]').disabled = msg.services
-            .filter((s) => ids.includes(s.id))
-            .every((s) => s.status === 'running' || s.status === 'starting');
+          const mine = msg.services.filter((s) => ids.includes(s.id));
+          const running = mine.filter((s) => s.status === 'running').length;
+          const count = sec.querySelector('.sec-count');
+          count.textContent = `${running}/${mine.length}`;
+          count.classList.toggle('all', mine.length > 0 && running === mine.length);
+          sec.querySelector('.sec-bar i').style.width = `${mine.length ? (running / mine.length) * 100 : 0}%`;
+          sec.querySelector('[data-sec=stop]').disabled = !mine.some(isUp);
+          sec.querySelector('[data-sec=start]').disabled = mine.every((s) => s.status === 'running' || s.status === 'starting');
         });
-        $('#summary').textContent = `${up}/${msg.services.length} up`;
+        $('#summary').textContent = `${up} / ${msg.services.length}`;
+        $('#health-sub').textContent = 'services up';
+        const ring = $('#health-ring');
+        const len = 2 * Math.PI * 15;
+        ring.style.strokeDashoffset = `${len * (1 - (msg.services.length ? up / msg.services.length : 0))}`;
         $('#podman-text').textContent = `Podman machine: ${msg.podmanMachine}`;
         $('#podman-dot').className = `dot ${msg.podmanMachine === 'running' ? 'running' : 'stopped'}`;
         $('#run-all').disabled = msg.runAllActive;
@@ -473,7 +710,10 @@
             if (msg.id === selected) queueRender();
           }
         };
-        es.onerror = () => { $('#summary').textContent = 'Runner offline — is `node server.js` running?'; };
+        es.onerror = () => {
+          $('#summary').textContent = 'Runner offline';
+          $('#health-sub').textContent = 'is `node server.js` running?';
+        };
       })();
     </script>
   </body>
