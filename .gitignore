@@ -1,0 +1,11 @@
+# Runtime output — service logs can contain tokens/secrets from the dev DB. Never commit.
+logs/
+*.log
+*.out
+
+# Local overrides / secrets
+.env
+.env.*
+
+node_modules/
+.DS_Store
