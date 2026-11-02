@@ -13,6 +13,7 @@
 // `stage` controls the order used by "Run & connect all" (lowest first; items in one stage start together).
 // `dependsOn` lists services that must be up first; starting a card starts (and waits for) them automatically.
 // `optionalDeps` are started the same way, but if one fails to come up the card starts anyway.
+// `inAll: false` leaves a card unticked for "Run & connect all" when it first appears (tick it on the card to include it).
 
 const os = require('os');
 const path = require('path');
@@ -57,7 +58,7 @@ module.exports = {
       section: 'hoop',
       group: 'Dev',
       stage: 0,
-      name: 'Hoop login',
+      name: 'Hoop login (Dev)',
       detail: 'dev.connect.trustrace.io',
       link: 'https://dev.connect.trustrace.io/resources',
       noLog: true
@@ -68,8 +69,8 @@ module.exports = {
       section: 'hoop',
       group: 'Dev',
       stage: 1,
-      name: 'MongoDB',
-      detail: 'dev-tt-app-rw',
+      name: 'MongoDB (Dev)',
+      detail: 'dev-tt-app-rw · read-write',
       connection: 'dev-tt-app-rw',
       dependsOn: ['hoop-login'],
       ports: [27018]
@@ -123,6 +124,34 @@ module.exports = {
       args: '--port 27019', // dev MongoDB already uses 27018
       dependsOn: ['hoop-login-qa'],
       ports: [27019]
+    },
+    {
+      id: 'hoop-login-prod',
+      kind: 'hoop-login',
+      section: 'hoop',
+      group: 'Prod',
+      stage: 0,
+      name: 'Hoop login (Prod)',
+      detail: 'connect.trustrace.io',
+      hoopHome: path.join(os.homedir(), '.hoop-prod'),
+      apiUrl: 'https://connect.trustrace.io',
+      link: 'https://connect.trustrace.io/resources',
+      inAll: false,
+      noLog: true
+    },
+    {
+      id: 'mongo-prod',
+      kind: 'hoop',
+      section: 'hoop',
+      group: 'Prod',
+      stage: 1,
+      name: 'MongoDB (Prod)',
+      detail: 'fashion-tt-app-ro · read-only',
+      connection: 'fashion-tt-app-ro',
+      args: '--port 27020', // dev uses 27018, QA 27019
+      dependsOn: ['hoop-login-prod'],
+      ports: [27020],
+      inAll: false
     },
 
     // ── Podman: one card per compose stack; each container keeps its own log ──

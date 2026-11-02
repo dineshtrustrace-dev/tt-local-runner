@@ -693,10 +693,11 @@
       (async () => {
         cfg = await fetch('/api/config').then((r) => r.json());
         const ids = cfg.services.map((s) => s.id);
-        // Cards added to config.js since the last visit start ticked "in all".
+        // Cards added to config.js since the last visit start ticked "in all" (unless they set inAll: false).
         const known = store.get('known', included);
-        if (!Array.isArray(included)) included = ids;
-        else included = [...included.filter((id) => ids.includes(id)), ...ids.filter((id) => !known.includes(id))];
+        const byDefault = cfg.services.filter((s) => s.inAll !== false).map((s) => s.id);
+        if (!Array.isArray(included)) included = byDefault;
+        else included = [...included.filter((id) => ids.includes(id)), ...byDefault.filter((id) => !known.includes(id))];
         store.set('included', included);
         store.set('known', ids);
         for (const s of cfg.services) for (const c of s.containers || []) logOwner[c.name] = s.id;

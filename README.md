@@ -13,7 +13,7 @@ No `npm install` needed (Node 22, no dependencies).
 
 | Section  | Cards                                                                          | Controlled with                    |
 | -------- | ------------------------------------------------------------------------------ | ---------------------------------- |
-| Hoop     | Dev: login, MongoDB (:27018), Elasticsearch (:8999), Nexus (:8081) · QA: login, MongoDB RO (:27019) | `hoop login` / `hoop connect`      |
+| Hoop     | Dev: login, MongoDB (:27018), Elasticsearch (:8999), Nexus (:8081) · QA: login, MongoDB RO (:27019) · Prod: login, MongoDB RO (:27020) | `hoop login` / `hoop connect`      |
 | Podman   | docker-local: rabbitmq, etcd0-2 · redis: redis, redisinsight                   | `podman start/stop <container>`    |
 | Backend  | tt-service (:5001), tt-material-compliance (:8086), tt-pfd (:8091), SS API (:3585) | `java -jar …` / `npm run start:dev` |
 | Frontend | SS UI (:4285), ui-real-time-coc (:4281-4284), ui-fashion-host (:4200)          | `npm start`                        |
@@ -30,8 +30,9 @@ No `npm install` needed (Node 22, no dependencies).
 ## Notes
 
 - Processes are started detached, so restarting `server.js` does not kill them; they're re-adopted by port.
-- Dev and QA (training) each have their own hoop login. QA's hoop config/token live in `~/.hoop-qa` (hoop runs with
-  `HOME=~/.hoop-qa`), so both sessions stay logged in at once. A failed login only skips the cards that need it.
+- Dev, QA (training) and Prod each have their own hoop login. QA's and Prod's hoop config/token live in `~/.hoop-qa`
+  and `~/.hoop-prod` (hoop runs with that as `HOME`), so all sessions stay logged in at once. A failed login only skips
+  the cards that need it. Prod cards start unticked "in all", so Run & connect all doesn't touch prod unless you tick them.
 - Services started outside the runner show "started outside runner" and can still be stopped from the card.
 - Commands, ports, env and order are all in `config.js`.
 - After a successful hoop login, the runner closes hoop's "You're logged-in!" tab in Chrome and switches back to the
