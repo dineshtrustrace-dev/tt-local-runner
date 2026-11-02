@@ -506,7 +506,7 @@
               <button class="small ghost" data-sec="stop">■ Stop section</button></div>`;
           el.querySelector('.sec-name').textContent = sec.title;
           el.querySelector('.sec-sub').textContent = sec.subtitle || '';
-          const ids = items.map((s) => s.id).filter((id) => id !== 'hoop-login');
+          const ids = items.filter((s) => s.kind !== 'hoop-login').map((s) => s.id);
           el.querySelector('[data-sec=start]').onclick = () => post('/api/run-all', { ids: items.map((s) => s.id) });
           el.querySelector('[data-sec=stop]').onclick = () => post('/api/stop-all', { ids });
           const groups = [...new Set(items.map((s) => s.group || ''))];
@@ -575,7 +575,8 @@
           }
         }
         // Stop buttons only make sense when something (besides the hoop SSO session) is up.
-        const isUp = (s) => s.id !== 'hoop-login' && s.status !== 'stopped' && !(s.status === 'failed' && !s.ports.some((p) => p.open));
+        const isLogin = (s) => cfg.services.some((x) => x.id === s.id && x.kind === 'hoop-login');
+        const isUp = (s) => !isLogin(s) && s.status !== 'stopped' && !(s.status === 'failed' && !s.ports.some((p) => p.open));
         $('#stop-all').disabled = !msg.services.some(isUp);
         document.querySelectorAll('section[data-sec]').forEach((sec) => {
           const ids = cfg.services.filter((x) => x.section === sec.dataset.sec).map((x) => x.id);

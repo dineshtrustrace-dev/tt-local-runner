@@ -1,8 +1,11 @@
 // Everything the dashboard controls lives here. Edit this file, then restart `node server.js`.
 //
 // kinds:
-//   hoop-login  — `hoop login`; status = whether `hoop admin get connections` succeeds
-//   hoop        — `hoop connect <connection>`; status = local port listening
+//   hoop-login  — `hoop login`; status = whether `hoop admin get connections` succeeds. With `hoopHome`, hoop runs
+//                 with HOME=<hoopHome> so it keeps its own config/token for the gateway at `apiUrl` (lets dev and
+//                 QA sessions stay logged in side by side).
+//   hoop        — `hoop connect <connection>`; status = local port listening. Uses the session of the
+//                 hoop-login it `dependsOn`.
 //   container   — group of existing podman containers, started/stopped together; status = combined podman
 //                 state. Each container's output goes to its own log (logs/<container>.log).
 //   process     — long-running command (Java service / npm dev server); status = port(s) listening
@@ -48,11 +51,22 @@ module.exports = {
 
   services: [
     // ── Hoop ────────────────────────────────────────────────────────────
-    { id: 'hoop-login', kind: 'hoop-login', section: 'hoop', stage: 0, name: 'Hoop login', detail: 'SSO session', noLog: true },
+    {
+      id: 'hoop-login',
+      kind: 'hoop-login',
+      section: 'hoop',
+      group: 'Dev',
+      stage: 0,
+      name: 'Hoop login',
+      detail: 'dev.connect.trustrace.io',
+      link: 'https://dev.connect.trustrace.io/resources',
+      noLog: true
+    },
     {
       id: 'mongo',
       kind: 'hoop',
       section: 'hoop',
+      group: 'Dev',
       stage: 1,
       name: 'MongoDB',
       detail: 'dev-tt-app-rw',
@@ -64,6 +78,7 @@ module.exports = {
       id: 'es',
       kind: 'hoop',
       section: 'hoop',
+      group: 'Dev',
       stage: 1,
       name: 'Elasticsearch',
       detail: 'fashion-dev-elasticsearch',
@@ -75,12 +90,39 @@ module.exports = {
       id: 'nexus',
       kind: 'hoop',
       section: 'hoop',
+      group: 'Dev',
       stage: 1,
       name: 'Nexus',
       detail: 'dev-nexus',
       connection: 'dev-nexus',
       dependsOn: ['hoop-login'],
       ports: [8081]
+    },
+    {
+      id: 'hoop-login-qa',
+      kind: 'hoop-login',
+      section: 'hoop',
+      group: 'QA · training',
+      stage: 0,
+      name: 'Hoop login (QA)',
+      detail: 'training.connect.trustrace.io',
+      hoopHome: path.join(os.homedir(), '.hoop-qa'),
+      apiUrl: 'https://training.connect.trustrace.io',
+      link: 'https://training.connect.trustrace.io/resources',
+      noLog: true
+    },
+    {
+      id: 'mongo-qa',
+      kind: 'hoop',
+      section: 'hoop',
+      group: 'QA · training',
+      stage: 1,
+      name: 'MongoDB (QA)',
+      detail: 'fashion-training-tt-app-ro · read-only',
+      connection: 'fashion-training-tt-app-ro',
+      args: '--port 27019', // dev MongoDB already uses 27018
+      dependsOn: ['hoop-login-qa'],
+      ports: [27019]
     },
 
     // ── Podman: one card per compose stack; each container keeps its own log ──

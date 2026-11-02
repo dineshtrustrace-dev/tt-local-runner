@@ -105,9 +105,9 @@ function readTail(id, maxBytes = 200 * 1024) {
 
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 
-function run(cmd, args, { timeout = 30000 } = {}) {
+function run(cmd, args, { timeout = 30000, env = process.env } = {}) {
   return new Promise((resolve) => {
-    execFile(cmd, args, { timeout, env: process.env }, (err, stdout, stderr) =>
+    execFile(cmd, args, { timeout, env }, (err, stdout, stderr) =>
       resolve({ ok: !err, code: err ? err.code : 0, stdout: String(stdout), stderr: String(stderr) })
     );
   });
@@ -165,12 +165,12 @@ async function listenerPids(port) {
 }
 
 /** Starts a detached process (own process group) with output appended to its log. */
-function spawnManaged(svc, command) {
+function spawnManaged(svc, command, baseEnv = process.env) {
   const out = fs.openSync(logPath(svc.id), 'a');
   appendLog(svc.id, `\n[runner] ── start ${new Date().toLocaleString()} ──\n$ (cd ${svc.cwd || ROOT}) ${command}`);
   const child = spawn(SHELL, ['-lc', command], {
     cwd: svc.cwd || ROOT,
-    env: { ...process.env, ...(svc.env || {}), FORCE_COLOR: '0', NO_COLOR: '1' },
+    env: { ...baseEnv, ...(svc.env || {}), FORCE_COLOR: '0', NO_COLOR: '1' },
     detached: true,
     stdio: ['ignore', out, out]
   });
@@ -262,15 +262,37 @@ async function ensurePodmanMachine() {
 
 // ─── Hoop login ─────────────────────────────────────────────────────────
 
-let hoopLoggedIn = null;
-let hoopCheckedAt = 0;
+const hoopLogins = () => config.services.filter((s) => s.kind === 'hoop-login');
+const hoopLoggedIn = new Map(); // login id → true/false (absent = not checked yet)
+const hoopCheckedAt = new Map();
 
-async function refreshHoopLogin(force = false) {
-  if (!force && Date.now() - hoopCheckedAt < 60000) return;
-  hoopCheckedAt = Date.now();
-  const r = await run(HOOP, ['admin', 'get', 'connections'], { timeout: 15000 });
-  hoopLoggedIn = r.ok;
+/** The hoop-login a card uses: itself, or the hoop-login it dependsOn. */
+const loginOf = (svc) => (svc.kind === 'hoop-login' ? svc : (svc.dependsOn || []).map((d) => services.get(d)).find((d) => d && d.kind === 'hoop-login'));
+
+/** Env for hoop commands: a login with `hoopHome` gets its own HOME, so its config/token don't clash with dev's. */
+function hoopEnv(svc) {
+  const login = loginOf(svc);
+  return login && login.hoopHome ? { ...process.env, HOME: login.hoopHome } : process.env;
 }
+
+async function refreshHoopLogin(login, force = false) {
+  if (!force && Date.now() - (hoopCheckedAt.get(login.id) || 0) < 60000) return;
+  hoopCheckedAt.set(login.id, Date.now());
+  const r = await run(HOOP, ['admin', 'get', 'connections'], { timeout: 15000, env: hoopEnv(login) });
+  hoopLoggedIn.set(login.id, r.ok);
+}
+
+const refreshHoopLogins = (force = false) => Promise.all(hoopLogins().map((l) => refreshHoopLogin(l, force)));
+
+/** Points an isolated hoop HOME at its gateway the first time (`hoop login` alone would ask for the URL). */
+async function ensureHoopConfig(login) {
+  if (!login.hoopHome || fs.existsSync(path.join(login.hoopHome, '.hoop', 'config.toml'))) return;
+  fs.mkdirSync(login.hoopHome, { recursive: true });
+  await runLogged(login.id, HOOP, ['config', 'create', '--api-url', login.apiUrl], { env: hoopEnv(login) });
+}
+
+// Browser logins share hoop's callback port (:3587), so only one runs at a time.
+let loginQueue = Promise.resolve();
 
 // After a browser login, close hoop's "You're logged-in!" tab (served by the CLI on :3587) and bring the
 // runner tab back to the front. Chrome only; macOS asks once for permission to control Chrome.
@@ -343,8 +365,8 @@ async function computeStatus(svc) {
 
   if (svc.kind === 'hoop-login') {
     if (st.busy) return set(st, 'starting', 'Waiting for browser login…');
-    if (hoopLoggedIn === null) return set(st, 'starting', 'Checking…');
-    return hoopLoggedIn ? set(st, 'running', 'Logged in') : set(st, 'stopped', 'Not logged in');
+    if (!hoopLoggedIn.has(svc.id)) return set(st, 'starting', 'Checking…');
+    return hoopLoggedIn.get(svc.id) ? set(st, 'running', 'Logged in') : set(st, 'stopped', 'Not logged in');
   }
 
   if (svc.kind === 'container') {
@@ -404,7 +426,7 @@ function snapshot() {
 }
 
 async function refreshAll() {
-  await Promise.all([refreshPodman(), refreshHoopLogin()]);
+  await Promise.all([refreshPodman(), refreshHoopLogins()]);
   await Promise.all(config.services.map(computeStatus));
   broadcast(snapshot());
 }
@@ -422,17 +444,22 @@ async function startService(id) {
   try {
     switch (svc.kind) {
       case 'hoop-login': {
-        appendLog(id, '[runner] opening browser for hoop login…');
-        await runLogged(id, HOOP, ['login']);
-        await refreshHoopLogin(true);
-        if (hoopLoggedIn) {
-          await sleep(1500); // let the success page show briefly
-          runnerLog(`Hoop login done — ${await returnToRunnerTab()}`);
-        }
+        const login = loginQueue.then(async () => {
+          await ensureHoopConfig(svc);
+          appendLog(id, '[runner] opening browser for hoop login…');
+          await runLogged(id, HOOP, ['login'], { env: hoopEnv(svc) });
+          await refreshHoopLogin(svc, true);
+          if (hoopLoggedIn.get(id)) {
+            await sleep(1500); // let the success page show briefly
+            runnerLog(`${svc.name} done — ${await returnToRunnerTab()}`);
+          }
+        });
+        loginQueue = login.catch(() => {});
+        await login;
         break;
       }
       case 'hoop':
-        spawnManaged(svc, `exec "${HOOP}" connect ${svc.connection}${svc.args ? ' ' + svc.args : ''}`);
+        spawnManaged(svc, `exec "${HOOP}" connect ${svc.connection}${svc.args ? ' ' + svc.args : ''}`, hoopEnv(svc));
         break;
       case 'container':
         if (!(await ensurePodmanMachine())) throw new Error('Podman machine could not be started');
@@ -460,8 +487,8 @@ async function stopService(id) {
   st.busy = true;
   try {
     if (svc.kind === 'hoop-login') {
-      await runLogged(id, HOOP, ['logout']);
-      await refreshHoopLogin(true);
+      await runLogged(id, HOOP, ['logout'], { env: hoopEnv(svc) });
+      await refreshHoopLogin(svc, true);
       return;
     }
     if (svc.kind === 'container') {
@@ -589,32 +616,37 @@ async function runAll(ids) {
   const wanted = new Set(ids && ids.length ? ids : config.services.map((s) => s.id));
   const stages = [...new Set(config.services.map((s) => s.stage))].sort((a, b) => a - b);
   runnerLog(`Run & connect all: ${[...wanted].join(', ')}`);
+  // A failed hoop login only skips the cards that need that session (dev and QA are independent).
+  const failedLogins = new Set();
+  const needs = (svc, dep, seen = new Set()) =>
+    (svc.dependsOn || []).some((d) => d === dep || (!seen.has(d) && seen.add(d) && needs(services.get(d), dep, seen)));
   try {
     for (const stage of stages) {
-      const batch = config.services.filter((s) => s.stage === stage && wanted.has(s.id));
+      const batch = config.services.filter((s) => {
+        if (s.stage !== stage || !wanted.has(s.id)) return false;
+        const lost = [...failedLogins].find((l) => needs(s, l));
+        if (lost) runnerLog(`– ${s.name} skipped: ${services.get(lost).name} failed`);
+        return !lost;
+      });
       if (!batch.length) continue;
       runnerLog(`Stage ${stage}: ${batch.map((s) => s.name).join(', ')}`);
       if (batch.some((s) => s.kind === 'container') && !(await ensurePodmanMachine())) {
         runnerLog('✗ Podman machine is not running — skipping containers');
         continue;
       }
-      const results = await Promise.all(
+      await Promise.all(
         batch.map(async (s) => {
           try {
             await startWithDeps(s.id);
             const ok = await waitFor(s.id, startTimeout(s));
             runnerLog(`${ok ? '✓' : '✗'} ${s.name}${ok ? ' is up' : ' did not come up — see its log'}`);
-            return ok;
+            if (!ok && s.kind === 'hoop-login') failedLogins.add(s.id);
           } catch (e) {
             runnerLog(`✗ ${s.name}: ${e.message}`);
-            return false;
+            if (s.kind === 'hoop-login') failedLogins.add(s.id);
           }
         })
       );
-      if (stage === 0 && results.includes(false)) {
-        runnerLog('Hoop login failed — stopping here, tunnels need a session');
-        return;
-      }
     }
     runnerLog('Run & connect all finished');
   } finally {
@@ -625,7 +657,7 @@ async function runAll(ids) {
 
 async function stopAll(ids) {
   const wanted = new Set(ids && ids.length ? ids : config.services.map((s) => s.id));
-  wanted.delete('hoop-login'); // keep the SSO session; log out explicitly from its card
+  for (const l of hoopLogins()) wanted.delete(l.id); // keep the SSO sessions; log out explicitly from their cards
   const stages = [...new Set(config.services.map((s) => s.stage))].sort((a, b) => b - a);
   runnerLog('Stop / disconnect all');
   for (const stage of stages) {
