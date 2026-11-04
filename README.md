@@ -24,6 +24,7 @@ No `npm install` needed (Node 22, no dependencies).
 - Each card can be started/stopped on its own; stopping one never touches the others.
 - Starting a card first starts whatever it needs (`dependsOn` in `config.js`) and waits for it — e.g.
   tt-material-compliance brings up hoop login → MongoDB, Elasticsearch, Nexus before it starts.
+  The smart-segregation API needs tt-service and tt-pfd, so starting it brings those up (and their deps) first.
 - Java cards build automatically if no jar exists; use **Build** to rebuild after pulling.
 - Click a card to see its log. Logs are also kept in `logs/<id>.log`.
 

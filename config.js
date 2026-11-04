@@ -238,13 +238,13 @@ module.exports = {
       id: 'ss-backend',
       kind: 'process',
       section: 'backend',
-      stage: 3,
+      stage: 4, // after tt-service / tt-pfd (stage 3), so Run & connect all has them up first
       name: 'smart-segregation API',
       detail: 'NestJS watch mode',
       cwd: path.join(WS, 'tt-smart-segregation'),
       ports: [3585],
       cmd: 'npm run start:dev -w backend',
-      dependsOn: ['mongo', 'es', 'nexus'],
+      dependsOn: ['mongo', 'es', 'nexus', 'tt-service', 'tt-pfd'],
       // main.ts enables CORS only from CORS_ORIGIN (backend/.env sets CORS_ORIGINS, which main.ts doesn't read).
       // One origin only: the host shell, which is where the SS MFE runs in the browser.
       env: { CORS_ORIGIN: 'http://localhost:4200' },
