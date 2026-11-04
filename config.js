@@ -235,37 +235,22 @@ module.exports = {
       startTimeoutSec: 1200
     },
     {
-      id: 'ss-backend',
+      id: 'smart-segregation',
       kind: 'process',
       section: 'backend',
       stage: 4, // after tt-service / tt-pfd (stage 3), so Run & connect all has them up first
-      name: 'smart-segregation API',
-      detail: 'NestJS watch mode',
+      name: 'smart-segregation',
+      detail: 'API :3585 · UI :4285',
       cwd: path.join(WS, 'tt-smart-segregation'),
-      ports: [3585],
-      cmd: 'npm run start:dev -w backend',
+      ports: [3585, 4285],
+      // Same as running `npm run start` in the repo: API (nest start) + UI (ng serve) together via concurrently.
+      cmd: 'npm run start',
       dependsOn: ['mongo', 'es', 'nexus', 'tt-service', 'tt-pfd'],
-      // main.ts enables CORS only from CORS_ORIGIN (backend/.env sets CORS_ORIGINS, which main.ts doesn't read).
-      // One origin only: the host shell, which is where the SS MFE runs in the browser.
-      env: { CORS_ORIGIN: 'http://localhost:4200' },
       link: 'http://localhost:3585/api/docs',
       startTimeoutSec: 300
     },
 
     // ── Frontend ───────────────────────────────────────────────────────
-    {
-      id: 'ss-frontend',
-      kind: 'process',
-      section: 'frontend',
-      stage: 4,
-      name: 'smart-segregation UI',
-      detail: 'MFE remote',
-      cwd: path.join(WS, 'tt-smart-segregation'),
-      ports: [4285],
-      cmd: 'npm run start -w frontend',
-      dependsOn: ['nexus'],
-      startTimeoutSec: 300
-    },
     {
       id: 'real-time-coc',
       kind: 'process',
@@ -288,7 +273,7 @@ module.exports = {
       detail: 'Host shell — open this one',
       cwd: path.join(WS, 'ui-fashion-host'),
       ports: [4200],
-      cmd: 'npm start',
+      cmd: 'npm run start',
       dependsOn: ['nexus'],
       link: 'http://localhost:4200',
       startTimeoutSec: 600
