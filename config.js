@@ -14,6 +14,9 @@
 // `dependsOn` lists services that must be up first; starting a card starts (and waits for) them automatically.
 // `optionalDeps` are started the same way, but if one fails to come up the card starts anyway.
 // `inAll: false` leaves a card unticked for "Run & connect all" when it first appears (tick it on the card to include it).
+// `ides` lists the editor buttons a card with a `cwd` shows, first one highlighted (keys of `ides` below). Default:
+// ['intellij', 'vscode'] for Java cards (Maven `build`), ['vscode'] for the rest.
+// `build` adds a Build button; the card then shows whether the last build passed or failed (kept across restarts).
 
 const os = require('os');
 const path = require('path');
@@ -42,6 +45,12 @@ const JAVA_ENV = {
 
 module.exports = {
   port: 7777,
+
+  // Editors offered on every card with a `cwd` — opened with `open -a <app> <cwd>` (macOS app names).
+  ides: {
+    intellij: { label: 'IntelliJ', app: 'IntelliJ IDEA' },
+    vscode: { label: 'VS Code', app: 'Visual Studio Code' }
+  },
 
   sections: [
     { id: 'hoop', title: 'Hoop', subtitle: 'Login and tunnels to dev data stores' },
@@ -245,6 +254,9 @@ module.exports = {
       ports: [3585, 4285],
       // Same as running `npm run start` in the repo: API (nest start) + UI (ng serve) together via concurrently.
       cmd: 'npm run start',
+      // Compiles UI (ng build) + API (nest build); the card shows whether the last build passed.
+      build: 'npm run build:frontend && npm run build:backend',
+      ides: ['vscode'],
       dependsOn: ['mongo', 'es', 'nexus', 'tt-service', 'tt-pfd'],
       link: 'http://localhost:3585/api/docs',
       startTimeoutSec: 300

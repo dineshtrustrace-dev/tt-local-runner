@@ -15,6 +15,7 @@ const config = require('./config');
 const ROOT = __dirname;
 const LOG_DIR = path.join(ROOT, 'logs');
 const STATE_FILE = path.join(LOG_DIR, '.pids.json');
+const BUILDS_FILE = path.join(LOG_DIR, '.builds.json');
 const SHELL = process.env.SHELL || '/bin/zsh';
 const HOOP = path.join(os.homedir(), '.hoop/bin/hoop');
 
@@ -40,6 +41,17 @@ try {
   pids = {};
 }
 const savePids = () => fs.writeFileSync(STATE_FILE, JSON.stringify(pids, null, 2));
+
+/** id → { status: 'running' | 'passed' | 'failed' | 'interrupted', startedAt, finishedAt } — last build per card. */
+let builds = {};
+try {
+  builds = JSON.parse(fs.readFileSync(BUILDS_FILE, 'utf8'));
+} catch {
+  builds = {};
+}
+// A build still marked running was cut off by a server restart.
+for (const b of Object.values(builds)) if (b.status === 'running') b.status = 'interrupted';
+const saveBuilds = () => fs.writeFileSync(BUILDS_FILE, JSON.stringify(builds, null, 2));
 
 let podmanMachine = 'unknown';
 let runAllActive = false;
@@ -418,6 +430,7 @@ function snapshot() {
         ports: st.ports || [],
         containers: st.containers,
         git: s.cwd ? gitInfo.get(s.cwd) : undefined,
+        build: builds[s.id],
         pid: st.pid,
         busy: st.busy
       };
@@ -519,12 +532,20 @@ async function buildService(id) {
   const svc = services.get(id);
   if (!svc || !svc.build) throw new Error(`${id} has no build command`);
   const st = state.get(id);
+  if (builds[id] && builds[id].status === 'running') throw new Error(`${svc.name} is already building`);
   st.busy = true;
+  builds[id] = { status: 'running', startedAt: Date.now() };
+  saveBuilds();
+  broadcast(snapshot());
+  let ok = false;
   try {
     appendLog(id, `\n[runner] ── build ${new Date().toLocaleString()} ──`);
-    const ok = await runLogged(id, SHELL, ['-lc', svc.build], { cwd: svc.cwd });
-    appendLog(id, ok ? '[runner] build succeeded' : '[runner] build FAILED');
+    ok = await runLogged(id, SHELL, ['-lc', svc.build], { cwd: svc.cwd, env: { ...process.env, FORCE_COLOR: '0', NO_COLOR: '1' } });
+    appendLog(id, ok ? '[runner] ✓ build passed' : '[runner] ✗ build FAILED');
+    runnerLog(`${ok ? '✓' : '✗'} ${svc.name} build ${ok ? 'passed' : 'failed'}`);
   } finally {
+    builds[id] = { ...builds[id], status: ok ? 'passed' : 'failed', finishedAt: Date.now() };
+    saveBuilds();
     st.busy = false;
   }
 }
@@ -722,7 +743,7 @@ const server = http.createServer(async (req, res) => {
   }
 
   if (req.method === 'GET' && p === '/api/config') {
-    return json(res, 200, { sections: config.sections, services: config.services.map(({ cmd, env, ...rest }) => rest) });
+    return json(res, 200, { sections: config.sections, ides: config.ides || {}, services: config.services.map(({ cmd, env, ...rest }) => rest) });
   }
 
   if (req.method === 'GET' && p === '/events') {
@@ -751,6 +772,19 @@ const server = http.createServer(async (req, res) => {
   if (req.method === 'POST' && p === '/api/stop-all') {
     const body = await readBody(req);
     return kick(res, stopAll(body.ids), 'Stop all');
+  }
+
+  const openMatch = p.match(/^\/api\/services\/([\w-]+)\/open\/([\w-]+)$/);
+  if (req.method === 'POST' && openMatch) {
+    const [, id, ideId] = openMatch;
+    const svc = services.get(id);
+    const ide = (config.ides || {})[ideId];
+    if (!svc || !svc.cwd) return json(res, 404, { error: `${id} has no project folder` });
+    if (!ide) return json(res, 404, { error: `Unknown editor ${ideId}` });
+    const r = await run('open', ['-a', ide.app, svc.cwd], { timeout: 15000 });
+    if (!r.ok) return json(res, 500, { error: `Could not open ${svc.cwd} in ${ide.label}: ${r.stderr.trim() || 'open failed'}` });
+    runnerLog(`Opened ${svc.name} in ${ide.label}`);
+    return json(res, 200, { ok: true });
   }
 
   const action = p.match(/^\/api\/services\/([\w-]+)\/(start|stop|restart|build)$/);
