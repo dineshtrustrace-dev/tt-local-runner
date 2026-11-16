@@ -162,6 +162,20 @@ module.exports = {
       ports: [27020],
       inAll: false
     },
+    {
+      id: 'mongo-knit-prod',
+      kind: 'hoop',
+      section: 'hoop',
+      group: 'Prod',
+      stage: 1,
+      name: 'MongoDB (Knit Prod)',
+      detail: 'knit-tt-app-ro · read-only',
+      connection: 'knit-tt-app-ro',
+      args: '--port 27021', // dev 27018, QA 27019, fashion prod 27020
+      dependsOn: ['hoop-login-prod'],
+      ports: [27021],
+      inAll: false
+    },
 
     // ── Podman: one card per compose stack; each container keeps its own log ──
     {

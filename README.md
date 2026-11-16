@@ -13,7 +13,7 @@ No `npm install` needed (Node 22, no dependencies).
 
 | Section  | Cards                                                                          | Controlled with                    |
 | -------- | ------------------------------------------------------------------------------ | ---------------------------------- |
-| Hoop     | Dev: login, MongoDB (:27018), Elasticsearch (:8999), Nexus (:8081) · QA: login, MongoDB RO (:27019) · Prod: login, MongoDB RO (:27020) | `hoop login` / `hoop connect`      |
+| Hoop     | Dev: login, MongoDB (:27018), Elasticsearch (:8999), Nexus (:8081) · QA: login, MongoDB RO (:27019) · Prod: login, MongoDB RO (:27020), Knit MongoDB RO (:27021) | `hoop login` / `hoop connect`      |
 | Podman   | docker-local: rabbitmq, etcd0-2 · redis: redis, redisinsight                   | `podman start/stop <container>`    |
 | Backend  | tt-service (:5001), tt-material-compliance (:8086), tt-pfd (:8091), smart-segregation API + UI (:3585, :4285) | `java -jar …` / `npm run start` |
 | Frontend | ui-real-time-coc (:4281-4284), ui-fashion-host (:4200)                         | `npm run start` / `npm run start:all` |
