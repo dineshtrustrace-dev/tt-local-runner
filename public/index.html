@@ -341,6 +341,45 @@
       .actions label input:checked { background: var(--accent); }
       .actions label input:checked::after { transform: translateX(11px); }
 
+      /* ── Duplex card: one data store, a read row and a write row (same parts as every other card) ── */
+      .card.duplex[data-status] { background: linear-gradient(180deg, var(--panel), var(--panel-2)); }
+      .card.duplex::before {
+        opacity: 1; animation: none;
+        background: linear-gradient(90deg, var(--ro-c, var(--grey)) 0 calc(50% - 1px), transparent calc(50% - 1px) calc(50% + 1px), var(--rw-c, var(--grey)) calc(50% + 1px));
+      }
+      .card.duplex:not([data-ro='running']):not([data-ro='starting']):not([data-ro='failed']) { --ro-c: color-mix(in srgb, var(--grey) 50%, transparent); }
+      .card.duplex:not([data-rw='running']):not([data-rw='starting']):not([data-rw='failed']) { --rw-c: color-mix(in srgb, var(--grey) 50%, transparent); }
+      .card.duplex[data-ro='running'] { --ro-c: var(--green); }
+      .card.duplex[data-ro='starting'] { --ro-c: var(--amber); }
+      .card.duplex[data-ro='failed'] { --ro-c: var(--red); }
+      .card.duplex[data-rw='running'] { --rw-c: var(--green); }
+      .card.duplex[data-rw='starting'] { --rw-c: var(--amber); }
+      .card.duplex[data-rw='failed'] { --rw-c: var(--red); }
+      .access { display: flex; flex-direction: column; border: 1px solid var(--border); border-radius: 10px; overflow: hidden; background: var(--panel); }
+      .lane {
+        display: grid; grid-template-columns: auto 1fr auto; align-items: center; gap: 2px 10px;
+        padding: 9px 10px; cursor: pointer; transition: background 0.2s;
+      }
+      .lane + .lane { border-top: 1px solid var(--border); }
+      .lane:hover { background: var(--chip); }
+      .lane[data-status='running'] { background: var(--green-soft); }
+      .lane[data-status='failed'] { background: var(--red-soft); }
+      .lane.selected { box-shadow: inset 3px 0 0 var(--accent); }
+      .lane > .dot { grid-row: span 2; align-self: start; margin-top: 5px; }
+      .lane-main { display: flex; align-items: center; gap: 7px; min-width: 0; }
+      .lane-tag { font-size: 10px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.06em; padding: 2px 7px; border-radius: 6px; flex: none; }
+      .lane.ro .lane-tag { background: var(--accent-soft); color: var(--accent); }
+      .lane.rw .lane-tag { background: var(--amber-soft); color: var(--amber); }
+      .lane .ports { flex: none; }
+      .lane .msg { grid-column: 2 / -1; font-size: 11px; min-height: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+      .lane [data-act='toggle'] { grid-row: 1; grid-column: 3; }
+      .lane [data-act='toggle']:not(.danger) { background: var(--accent-soft); color: var(--accent); border-color: transparent; }
+      .lane [data-act='toggle'].danger { background: var(--red-soft); border-color: transparent; }
+      .lane [data-act='toggle']:hover:not(:disabled) { border-color: currentColor; }
+      .incl { margin-left: auto; display: flex; align-items: center; gap: 10px; font-size: 11px; color: var(--muted); }
+      .actions .incl label { margin-left: 0; }
+      .incl label b { font-size: 10px; font-weight: 600; }
+
       /* ── Log panel ──────────────────────────────────────────── */
       footer {
         position: relative; background: var(--log-bg); border-top: 1px solid var(--log-border);
@@ -496,10 +535,83 @@
       const dur = (ms) => { const sec = Math.round(ms / 1000); return sec < 60 ? `${sec}s` : `${Math.floor(sec / 60)}m ${String(sec % 60).padStart(2, '0')}s`; };
 
       // ── Render cards ────────────────────────────────────────────────
+      // Shared click handling for a card or a duplex lane: the Start/Connect toggle, Restart/Build, the "in all" switch.
+      function handleAct(s, e) {
+        const actEl = e.target.closest('[data-act]');
+        const act = actEl && actEl.dataset.act;
+        if (act === 'include') {
+          included = actEl.checked ? [...included, s.id] : included.filter((x) => x !== s.id);
+          store.set('included', included);
+          return true;
+        }
+        if (e.target.tagName === 'A' || e.target.tagName === 'LABEL') return true;
+        if (!act) return false;
+        e.stopPropagation();
+        const st = status[s.id] || {};
+        const verb = act === 'toggle' ? (st.status === 'stopped' || st.status === 'failed' ? 'start' : 'stop') : act;
+        post(`/api/services/${s.id}/${verb}`);
+        if (!s.noLog) selectLog(defaultLog(s));
+        return true;
+      }
+      const needsText = (s) => {
+        const name = (d) => cfg.services.find((x) => x.id === d).name;
+        return 'Needs: ' + [...(s.dependsOn || []).map(name), ...(s.optionalDeps || []).map((d) => `${name(d)} (optional)`)].join(' · ');
+      };
+
+      // "dev-tt-app-ro" + "dev-tt-app-rw" → "dev-tt-app"
+      const commonStem = (names) => {
+        const pre = names.reduce((a, b) => { let i = 0; while (i < a.length && a[i] === b[i]) i++; return a.slice(0, i); });
+        return pre.includes('-') ? pre.slice(0, pre.lastIndexOf('-')) : pre;
+      };
+
+      /** One card for a `pair` of tunnels: a Read row and a Write row, each with its own port, status and Connect. */
+      function duplexCard(pair, lanes) {
+        lanes = [...lanes].sort((a, b) => (a.access === 'ro' ? -1 : 1) - (b.access === 'ro' ? -1 : 1));
+        const tag = (l) => (l.access === 'ro' ? 'Read' : 'Write');
+        const el = document.createElement('div');
+        el.className = 'card duplex';
+        el.dataset.id = pair.id;
+        el.dataset.status = 'stopped';
+        el.innerHTML = `
+          <div class="card-top"><span class="dot head"></span><span class="name"></span><span class="kind">Tunnel</span></div>
+          <div class="detail">${esc(commonStem(lanes.map((l) => l.connection)))} · ${lanes.map((l) => (l.access === 'ro' ? 'read-only' : 'read-write')).join(' + ')}</div>
+          ${lanes[0].dependsOn ? `<div class="detail needs"></div>` : ''}
+          <div class="access">${lanes
+            .map(
+              (l) => `
+            <div class="lane ${l.access}" data-svc="${l.id}" data-status="stopped" title="Click for the ${esc(l.connection)} log">
+              <span class="dot"></span>
+              <div class="lane-main"><span class="lane-tag">${tag(l)}</span><div class="ports"></div></div>
+              <button class="small" data-act="toggle">Connect</button>
+              <div class="msg"></div>
+            </div>`
+            )
+            .join('')}</div>
+          <div class="actions">
+            <span class="incl">in all${lanes
+              .map((l) => `<label title="Include ${esc(l.connection)} in Run & connect all"><b>${tag(l)}</b><input type="checkbox" data-act="include" data-for="${l.id}" ${included.includes(l.id) ? 'checked' : ''} /></label>`)
+              .join('')}</span>
+          </div>`;
+        el.querySelector('.name').textContent = pair.name;
+        if (lanes[0].dependsOn) el.querySelector('.needs').textContent = needsText(lanes[0]);
+        el.addEventListener('click', (e) => {
+          const laneEl = e.target.closest('.lane');
+          const forId = e.target.dataset && e.target.dataset.for;
+          const l = lanes.find((x) => x.id === (laneEl ? laneEl.dataset.svc : forId));
+          if (l && handleAct(l, e)) return;
+          if (e.target.closest('.actions')) return;
+          // Card body → the connected row's log (Read if both or neither are up).
+          const target = l || lanes.find((x) => (status[x.id] || {}).status === 'running') || lanes[0];
+          selectLog(target.id);
+        });
+        return el;
+      }
+
       function card(s) {
         const el = document.createElement('div');
         el.className = 'card';
         el.dataset.id = s.id;
+        el.dataset.svc = s.id;
         el.dataset.status = 'stopped';
         el.innerHTML = `
           <div class="card-top"><span class="dot"></span><span class="name"></span>${s.cwd ? `<span class="ides">${ideOrder(s).map((k) => ideTile(s, k)).join('')}</span>` : ''}<span class="kind"></span></div>
@@ -520,21 +632,10 @@
         el.querySelector('.name').textContent = s.name;
         el.querySelector('.kind').textContent = kindLabel(s);
         if (s.detail) el.querySelector('.detail').textContent = s.detail;
-        if (s.dependsOn || s.optionalDeps) {
-          const name = (d) => cfg.services.find((x) => x.id === d).name;
-          el.querySelector('.needs').textContent =
-            'Needs: ' + [...(s.dependsOn || []).map(name), ...(s.optionalDeps || []).map((d) => `${name(d)} (optional)`)].join(' · ');
-        }
+        if (s.dependsOn || s.optionalDeps) el.querySelector('.needs').textContent = needsText(s);
         if (s.link) el.querySelector('a').href = s.link;
         el.querySelector('[data-act=include]').checked = included.includes(s.id);
         el.addEventListener('click', (e) => {
-          const act = e.target.dataset && e.target.dataset.act;
-          if (act === 'include') {
-            included = e.target.checked ? [...included, s.id] : included.filter((x) => x !== s.id);
-            store.set('included', included);
-            return;
-          }
-          if (e.target.tagName === 'A' || e.target.tagName === 'LABEL') return;
           const ide = e.target.closest('[data-ide]');
           if (ide) {
             e.stopPropagation();
@@ -546,14 +647,7 @@
           if (e.target.closest('.build')) return selectLog(s.id);
           const sub = e.target.closest('[data-log]');
           if (sub) return selectLog(sub.dataset.log);
-          if (act) {
-            e.stopPropagation();
-            const st = status[s.id] || {};
-            const verb = act === 'toggle' ? (st.status === 'stopped' || st.status === 'failed' ? 'start' : 'stop') : act;
-            post(`/api/services/${s.id}/${verb}`);
-            if (!s.noLog) selectLog(defaultLog(s));
-            return;
-          }
+          if (handleAct(s, e)) return;
           if (!s.noLog) selectLog(defaultLog(s));
         });
         return el;
@@ -587,7 +681,15 @@
             }
             const grid = document.createElement('div');
             grid.className = 'grid';
-            items.filter((s) => (s.group || '') === g).forEach((s) => grid.appendChild(card(s)));
+            const inGroup = items.filter((s) => (s.group || '') === g);
+            const drawn = new Set();
+            for (const s of inGroup) {
+              if (!s.pair) grid.appendChild(card(s));
+              else if (!drawn.has(s.pair.id)) {
+                drawn.add(s.pair.id);
+                grid.appendChild(duplexCard(s.pair, inGroup.filter((x) => x.pair && x.pair.id === s.pair.id)));
+              }
+            }
             el.appendChild(grid);
           }
           root.appendChild(el);
@@ -606,7 +708,7 @@
         status = Object.fromEntries(msg.services.map((s) => [s.id, s]));
         let up = 0;
         for (const s of msg.services) {
-          const el = document.querySelector(`.card[data-id="${s.id}"]`);
+          const el = document.querySelector(`[data-svc="${s.id}"]`);
           if (!el) continue;
           if (s.status === 'running') up++;
           el.dataset.status = s.status;
@@ -661,6 +763,14 @@
             chip.title = `${c.name}: ${c.status} — click for log`;
           }
         }
+        // Duplex cards: each half of the top bar and the R/W meter follow their lane; the card takes the "loudest" state.
+        document.querySelectorAll('.card.duplex').forEach((card) => {
+          const lanes = [...card.querySelectorAll('.lane')];
+          for (const l of lanes) card.dataset[l.classList.contains('ro') ? 'ro' : 'rw'] = l.dataset.status;
+          const st = lanes.map((l) => l.dataset.status);
+          card.dataset.status = ['failed', 'starting', 'running'].find((x) => st.includes(x)) || 'stopped';
+          card.querySelector('.dot.head').className = `dot head ${card.dataset.status}`;
+        });
         // Stop buttons only make sense when something (besides the hoop SSO session) is up.
         const isLogin = (s) => cfg.services.some((x) => x.id === s.id && x.kind === 'hoop-login');
         const isUp = (s) => !isLogin(s) && s.status !== 'stopped' && !(s.status === 'failed' && !s.ports.some((p) => p.open));
@@ -721,6 +831,7 @@
         const owner = logOwner[id] || id;
         document.querySelectorAll('.card').forEach((c) => c.classList.toggle('selected', c.dataset.id === owner));
         document.querySelectorAll('.sub').forEach((c) => c.classList.toggle('selected', c.dataset.log === id));
+        document.querySelectorAll('.lane').forEach((c) => c.classList.toggle('selected', c.dataset.svc === id));
         if (logs[id] === undefined) {
           const r = await fetch(`/api/logs/${id}`).then((r) => r.json());
           logs[id] = r.text.replace(ANSI, '');
@@ -788,6 +899,7 @@
         store.set('included', included);
         store.set('known', ids);
         for (const s of cfg.services) for (const c of s.containers || []) logOwner[c.name] = s.id;
+        for (const s of cfg.services) if (s.pair) logOwner[s.id] = s.pair.id;
         renderSections();
         selectLog('runner');
         const es = new EventSource('/events');

@@ -16,6 +16,8 @@
 // `inAll: false` leaves a card unticked for "Run & connect all" when it first appears (tick it on the card to include it).
 // `ides` lists the editor buttons a card with a `cwd` shows, first one highlighted (keys of `ides` below). Default:
 // ['intellij', 'vscode'] for Java cards (Maven `build`), ['vscode'] for the rest.
+// `pair` + `access` ('ro' | 'rw') puts two hoop tunnels into one split card — a read lane and a write lane, each
+// with its own port, log, Connect button and "in all" switch (they stay separate services underneath).
 // `build` adds a Build button; the card then shows whether the last build passed or failed (kept across restarts).
 
 const os = require('os');
@@ -34,6 +36,10 @@ const javaStart = ({ jarDir, build, javaArgs }) =>
     `echo "[runner] starting $JAR"`,
     `exec java ${javaArgs} -jar "$JAR"`
   ].join('\n');
+
+// One card per data store with read and write lanes (see `pair` above).
+const MONGO_DEV = { id: 'mongo-dev', name: 'MongoDB (Dev)' };
+const MONGO_QE = { id: 'mongo-qe', name: 'MongoDB (QE)' };
 
 const MVN_FAST = 'mvn clean install -DskipTests -Dsonar.skip=true -Dfmt.skip=true';
 
@@ -78,11 +84,29 @@ module.exports = {
       section: 'hoop',
       group: 'Dev',
       stage: 1,
-      name: 'MongoDB (Dev)',
+      name: 'MongoDB (Dev) · write',
       detail: 'dev-tt-app-rw · read-write',
+      pair: MONGO_DEV,
+      access: 'rw',
       connection: 'dev-tt-app-rw',
       dependsOn: ['hoop-login'],
-      ports: [27018]
+      ports: [27018] // the Java services use this one (JAVA_ENV)
+    },
+    {
+      id: 'mongo-dev-ro',
+      kind: 'hoop',
+      section: 'hoop',
+      group: 'Dev',
+      stage: 1,
+      name: 'MongoDB (Dev) · read',
+      detail: 'dev-tt-app-ro · read-only',
+      pair: MONGO_DEV,
+      access: 'ro',
+      connection: 'dev-tt-app-ro',
+      args: '--port 27022', // 27018-27021 are taken (dev rw, QA, prod, knit prod)
+      dependsOn: ['hoop-login'],
+      ports: [27022],
+      inAll: false
     },
     {
       id: 'es',
@@ -133,6 +157,52 @@ module.exports = {
       args: '--port 27019', // dev MongoDB already uses 27018
       dependsOn: ['hoop-login-qa'],
       ports: [27019]
+    },
+    {
+      id: 'hoop-login-qe',
+      kind: 'hoop-login',
+      section: 'hoop',
+      group: 'QE',
+      stage: 0,
+      name: 'Hoop login (QE)',
+      detail: 'qe.connect.trustrace.io',
+      hoopHome: path.join(os.homedir(), '.hoop-qe'),
+      apiUrl: 'https://qe.connect.trustrace.io',
+      link: 'https://qe.connect.trustrace.io/resources',
+      inAll: false,
+      noLog: true
+    },
+    {
+      id: 'mongo-qe-ro',
+      kind: 'hoop',
+      section: 'hoop',
+      group: 'QE',
+      stage: 1,
+      name: 'MongoDB (QE) · read',
+      detail: 'qe-tt-app-ro · read-only',
+      pair: MONGO_QE,
+      access: 'ro',
+      connection: 'qe-tt-app-ro',
+      args: '--port 27023',
+      dependsOn: ['hoop-login-qe'],
+      ports: [27023],
+      inAll: false
+    },
+    {
+      id: 'mongo-qe-rw',
+      kind: 'hoop',
+      section: 'hoop',
+      group: 'QE',
+      stage: 1,
+      name: 'MongoDB (QE) · write',
+      detail: 'qe-tt-app-rw · read-write',
+      pair: MONGO_QE,
+      access: 'rw',
+      connection: 'qe-tt-app-rw',
+      args: '--port 27024',
+      dependsOn: ['hoop-login-qe'],
+      ports: [27024],
+      inAll: false
     },
     {
       id: 'hoop-login-prod',
