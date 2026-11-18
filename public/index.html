@@ -253,6 +253,16 @@
       .port::before { content: ''; width: 5px; height: 5px; border-radius: 50%; background: currentColor; opacity: 0.6; }
       .port.open { color: var(--green); background: var(--green-soft); }
       .port.open::before { opacity: 1; }
+      .uri {
+        display: flex; align-items: center; gap: 8px; width: 100%; min-width: 0;
+        font: 500 11px var(--mono); padding: 4px 4px 4px 9px; border-radius: 7px;
+        background: var(--chip); color: var(--muted); border: 1px solid transparent; cursor: copy; text-align: left;
+      }
+      .uri:hover { border-color: var(--border); color: var(--text); }
+      .uri code { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font: inherit; }
+      .uri .copy { flex: none; font-family: system-ui, sans-serif; font-size: 10px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.05em; padding: 2px 7px; border-radius: 5px; background: var(--accent-soft); color: var(--accent); }
+      .uri.copied .copy { background: var(--green-soft); color: var(--green); }
+      .lane .uri { grid-column: 2 / -1; margin-top: 4px; background: color-mix(in srgb, var(--chip) 70%, transparent); }
       .subs { display: flex; flex-wrap: wrap; gap: 5px; }
       .sub {
         display: inline-flex; align-items: center; gap: 6px;
@@ -558,6 +568,31 @@
         return 'Needs: ' + [...(s.dependsOn || []).map(name), ...(s.optionalDeps || []).map((d) => `${name(d)} (optional)`)].join(' · ');
       };
 
+      // MongoDB tunnels get a copyable connection string (hoop accepts any user/password locally).
+      const mongoUri = (s) => (s.kind === 'hoop' && /mongodb/i.test(s.name) && s.ports && s.ports[0] ? `mongodb://noop:noop@127.0.0.1:${s.ports[0]}/?directConnection=true` : '');
+      const uriChip = (s) => {
+        const u = mongoUri(s);
+        return u ? `<button type="button" class="uri" data-copy="${esc(u)}" title="Copy ${esc(u)}"><code>${esc(u)}</code><span class="copy">Copy</span></button>` : '';
+      };
+      async function copyText(text) {
+        try { await navigator.clipboard.writeText(text); return true; } catch {}
+        const ta = Object.assign(document.createElement('textarea'), { value: text });
+        document.body.appendChild(ta); ta.select();
+        const ok = document.execCommand('copy'); ta.remove(); return ok;
+      }
+      // Capture phase so a copy click never also toggles/selects the card underneath.
+      document.addEventListener('click', async (e) => {
+        const btn = e.target.closest('[data-copy]');
+        if (!btn) return;
+        e.stopPropagation();
+        const ok = await copyText(btn.dataset.copy);
+        const label = btn.querySelector('.copy');
+        btn.classList.toggle('copied', ok);
+        label.textContent = ok ? 'Copied' : 'Failed';
+        clearTimeout(btn._t);
+        btn._t = setTimeout(() => { btn.classList.remove('copied'); label.textContent = 'Copy'; }, 1400);
+      }, true);
+
       // "dev-tt-app-ro" + "dev-tt-app-rw" → "dev-tt-app"
       const commonStem = (names) => {
         const pre = names.reduce((a, b) => { let i = 0; while (i < a.length && a[i] === b[i]) i++; return a.slice(0, i); });
@@ -584,6 +619,7 @@
               <div class="lane-main"><span class="lane-tag">${tag(l)}</span><div class="ports"></div></div>
               <button class="small" data-act="toggle">Connect</button>
               <div class="msg"></div>
+              ${uriChip(l)}
             </div>`
             )
             .join('')}</div>
@@ -621,6 +657,7 @@
           ${s.build ? `<button class="build" hidden title="Show build log"></button>` : ''}
           ${s.containers ? `<div class="subs">${s.containers.map((c) => `<button class="sub" data-log="${c.name}" title="Show ${c.name} log"><span class="dot"></span>${c.name}</button>`).join('')}</div>` : ''}
           <div class="ports"></div>
+          ${uriChip(s)}
           <div class="msg"></div>
           <div class="actions">
             <button class="small" data-act="toggle">Start</button>

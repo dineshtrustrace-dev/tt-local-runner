@@ -13,7 +13,7 @@ No `npm install` needed (Node 22, no dependencies).
 
 | Section  | Cards                                                                          | Controlled with                    |
 | -------- | ------------------------------------------------------------------------------ | ---------------------------------- |
-| Hoop     | Dev: login, MongoDB read (:27022) / write (:27018), Elasticsearch (:8999), Nexus (:8081) · QA: login, MongoDB RO (:27019) · QE: login, MongoDB read (:27023) / write (:27024) · Prod: login, MongoDB RO (:27020), Knit MongoDB RO (:27021) | `hoop login` / `hoop connect`      |
+| Hoop     | Dev: login, MongoDB read (:27022) / write (:27018), Elasticsearch (:8999), Nexus (:8081) · QE: login, MongoDB read (:27023) / write (:27024) · Training: login, MongoDB RO (:27019) · Prod: login, MongoDB RO (:27020), Knit MongoDB RO (:27021) | `hoop login` / `hoop connect`      |
 | Podman   | docker-local: rabbitmq, etcd0-2 · redis: redis, redisinsight                   | `podman start/stop <container>`    |
 | Backend  | tt-service (:5001), tt-material-compliance (:8086), tt-pfd (:8091), smart-segregation API + UI (:3585, :4285) | `java -jar …` / `npm run start` |
 | Frontend | ui-real-time-coc (:4281-4284), ui-fashion-host (:4200)                         | `npm run start` / `npm run start:all` |
@@ -37,8 +37,8 @@ No `npm install` needed (Node 22, no dependencies).
 ## Notes
 
 - Processes are started detached, so restarting `server.js` does not kill them; they're re-adopted by port.
-- Dev, QA (training), QE and Prod each have their own hoop login. QA's, QE's and Prod's hoop config/token live in
-  `~/.hoop-qa`, `~/.hoop-qe` and `~/.hoop-prod` (hoop runs with that as `HOME`), so all sessions stay logged in at once. A failed login only skips
+- Dev, QE, Training and Prod each have their own hoop login. QE's, Training's and Prod's hoop config/token live in
+  `~/.hoop-qe`, `~/.hoop-qa` and `~/.hoop-prod` (hoop runs with that as `HOME`), so all sessions stay logged in at once. A failed login only skips
   the cards that need it. Prod cards start unticked "in all", so Run & connect all doesn't touch prod unless you tick them.
 - Services started outside the runner show "started outside runner" and can still be stopped from the card.
 - Commands, ports, env and order are all in `config.js`.

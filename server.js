@@ -296,9 +296,13 @@ async function refreshHoopLogin(login, force = false) {
 
 const refreshHoopLogins = (force = false) => Promise.all(hoopLogins().map((l) => refreshHoopLogin(l, force)));
 
-/** Points an isolated hoop HOME at its gateway the first time (`hoop login` alone would ask for the URL). */
+/** Points an isolated hoop HOME at its gateway (`hoop login` alone would ask for the URL). Re-runs `hoop config create`
+ *  when the config is missing, empty or points at another gateway. */
 async function ensureHoopConfig(login) {
-  if (!login.hoopHome || fs.existsSync(path.join(login.hoopHome, '.hoop', 'config.toml'))) return;
+  if (!login.hoopHome) return;
+  const file = path.join(login.hoopHome, '.hoop', 'config.toml');
+  const current = fs.existsSync(file) ? fs.readFileSync(file, 'utf8') : '';
+  if (current.includes(login.apiUrl)) return;
   fs.mkdirSync(login.hoopHome, { recursive: true });
   await runLogged(login.id, HOOP, ['config', 'create', '--api-url', login.apiUrl], { env: hoopEnv(login) });
 }

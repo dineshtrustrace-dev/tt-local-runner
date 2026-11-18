@@ -133,32 +133,6 @@ module.exports = {
       ports: [8081]
     },
     {
-      id: 'hoop-login-qa',
-      kind: 'hoop-login',
-      section: 'hoop',
-      group: 'QA · training',
-      stage: 0,
-      name: 'Hoop login (QA)',
-      detail: 'training.connect.trustrace.io',
-      hoopHome: path.join(os.homedir(), '.hoop-qa'),
-      apiUrl: 'https://training.connect.trustrace.io',
-      link: 'https://training.connect.trustrace.io/resources',
-      noLog: true
-    },
-    {
-      id: 'mongo-qa',
-      kind: 'hoop',
-      section: 'hoop',
-      group: 'QA · training',
-      stage: 1,
-      name: 'MongoDB (QA)',
-      detail: 'fashion-training-tt-app-ro · read-only',
-      connection: 'fashion-training-tt-app-ro',
-      args: '--port 27019', // dev MongoDB already uses 27018
-      dependsOn: ['hoop-login-qa'],
-      ports: [27019]
-    },
-    {
       id: 'hoop-login-qe',
       kind: 'hoop-login',
       section: 'hoop',
@@ -203,6 +177,32 @@ module.exports = {
       dependsOn: ['hoop-login-qe'],
       ports: [27024],
       inAll: false
+    },
+    {
+      id: 'hoop-login-qa',
+      kind: 'hoop-login',
+      section: 'hoop',
+      group: 'Training',
+      stage: 0,
+      name: 'Hoop login (Training)',
+      detail: 'training.connect.trustrace.io',
+      hoopHome: path.join(os.homedir(), '.hoop-qa'),
+      apiUrl: 'https://training.connect.trustrace.io',
+      link: 'https://training.connect.trustrace.io/resources',
+      noLog: true
+    },
+    {
+      id: 'mongo-qa',
+      kind: 'hoop',
+      section: 'hoop',
+      group: 'Training',
+      stage: 1,
+      name: 'MongoDB (Training)',
+      detail: 'fashion-training-tt-app-ro · read-only',
+      connection: 'fashion-training-tt-app-ro',
+      args: '--port 27019', // dev MongoDB already uses 27018
+      dependsOn: ['hoop-login-qa'],
+      ports: [27019]
     },
     {
       id: 'hoop-login-prod',
