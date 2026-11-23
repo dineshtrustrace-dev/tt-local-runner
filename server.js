@@ -56,6 +56,25 @@ const saveBuilds = () => fs.writeFileSync(BUILDS_FILE, JSON.stringify(builds, nu
 let podmanMachine = 'unknown';
 let runAllActive = false;
 
+// ─── App DB switch ──────────────────────────────────────────────────────
+// The Java services (run here or from IntelliJ) always use one fixed MongoDB port; the runner forwards it to the
+// tunnel picked in the header, so changing DB never means editing a run configuration.
+
+const SWITCH = config.mongoSwitch;
+const MONGO_ACTIVE = SWITCH.depId; // placeholder in `dependsOn` for "whichever MongoDB is picked"
+const TARGET_FILE = path.join(LOG_DIR, '.mongo-target.json');
+const mongoTargets = config.services.filter((s) => s.kind === 'hoop' && /^mongo/.test(s.id));
+let mongoTarget = SWITCH.default;
+try {
+  const saved = JSON.parse(fs.readFileSync(TARGET_FILE, 'utf8')).target;
+  if (mongoTargets.some((s) => s.id === saved)) mongoTarget = saved;
+} catch {
+  /* first run — keep the default */
+}
+
+/** dependsOn with the App DB placeholder replaced by the picked tunnel. */
+const depsOf = (svc) => (svc.dependsOn || []).map((d) => (d === MONGO_ACTIVE ? mongoTarget : d));
+
 // ─── Logging ────────────────────────────────────────────────────────────
 
 const logPath = (id) => path.join(LOG_DIR, `${id}.log`);
@@ -438,6 +457,7 @@ function snapshot() {
     type: 'status',
     podmanMachine,
     runAllActive,
+    mongo: { port: SWITCH.port, target: mongoTarget, connections: proxied.size, error: proxyError },
     services: config.services.map((s) => {
       const st = state.get(s.id);
       return {
@@ -593,7 +613,7 @@ async function startWithDeps(id) {
   const svc = services.get(id);
   if (!svc) throw new Error(`Unknown service ${id}`);
   const optional = svc.optionalDeps || [];
-  const deps = [...(svc.dependsOn || []), ...optional];
+  const deps = [...depsOf(svc), ...optional];
   if (deps.length) {
     const st = state.get(id);
     const token = (st.startToken = {});
@@ -657,7 +677,7 @@ async function runAll(ids) {
   // A failed hoop login only skips the cards that need that session (dev and QA are independent).
   const failedLogins = new Set();
   const needs = (svc, dep, seen = new Set()) =>
-    (svc.dependsOn || []).some((d) => d === dep || (!seen.has(d) && seen.add(d) && needs(services.get(d), dep, seen)));
+    depsOf(svc).some((d) => d === dep || (!seen.has(d) && seen.add(d) && needs(services.get(d), dep, seen)));
   try {
     for (const stage of stages) {
       const batch = config.services.filter((s) => {
@@ -717,6 +737,65 @@ async function stopAll(ids) {
   refreshAll();
 }
 
+// ─── App DB forwarder ───────────────────────────────────────────────────
+
+/** Open client ↔ tunnel socket pairs, dropped on a switch so the app's driver reconnects to the new DB. */
+const proxied = new Set();
+let proxyError = null;
+let lastDownWarn = 0;
+
+const proxy = net.createServer((client) => {
+  const svc = services.get(mongoTarget);
+  // `localhost` + autoSelectFamily reaches the tunnel whether hoop bound 127.0.0.1 or ::1.
+  const upstream = net.connect({ host: 'localhost', port: svc.ports[0], autoSelectFamily: true });
+  const pair = { client, upstream };
+  proxied.add(pair);
+  const close = () => {
+    client.destroy();
+    upstream.destroy();
+    proxied.delete(pair);
+  };
+  upstream.once('error', (e) => {
+    if (Date.now() - lastDownWarn > 30000) {
+      lastDownWarn = Date.now();
+      runnerLog(`✗ App DB :${SWITCH.port} → ${svc.name} (:${svc.ports[0]}) unreachable (${e.code || e.message}) — connect that tunnel`);
+    }
+    close();
+  });
+  client.once('error', close);
+  client.once('close', close);
+  upstream.once('close', close);
+  client.pipe(upstream).pipe(client);
+});
+proxy.on('error', (e) => {
+  proxyError = e.code === 'EADDRINUSE' ? `port ${SWITCH.port} is already in use` : e.message;
+  runnerLog(`✗ App DB forwarder could not start: ${proxyError}`);
+});
+proxy.listen(SWITCH.port, '127.0.0.1', () =>
+  runnerLog(`App DB :${SWITCH.port} → ${services.get(mongoTarget).name} (:${services.get(mongoTarget).ports[0]})`)
+);
+
+function switchMongo(id) {
+  const svc = services.get(id);
+  if (!mongoTargets.includes(svc)) throw new Error(`${id} is not a MongoDB tunnel`);
+  const prev = mongoTarget;
+  mongoTarget = id;
+  fs.writeFileSync(TARGET_FILE, JSON.stringify({ target: id }, null, 2));
+  const dropped = proxied.size;
+  for (const { client, upstream } of [...proxied]) {
+    client.destroy();
+    upstream.destroy();
+  }
+  proxied.clear();
+  if (prev !== id) {
+    runnerLog(
+      `App DB :${SWITCH.port} → ${svc.name} (:${svc.ports[0]})` +
+        (dropped ? ` — dropped ${dropped} open connection(s); restart running services to clear cached data` : '')
+    );
+  }
+  return ensureUp(id); // connect the tunnel (and its hoop login) if it isn't up yet
+}
+
 // ─── HTTP ───────────────────────────────────────────────────────────────
 
 const clients = new Set();
@@ -760,7 +839,18 @@ const server = http.createServer(async (req, res) => {
   }
 
   if (req.method === 'GET' && p === '/api/config') {
-    return json(res, 200, { sections: config.sections, ides: config.ides || {}, services: config.services.map(({ cmd, env, ...rest }) => rest) });
+    return json(res, 200, {
+      sections: config.sections,
+      ides: config.ides || {},
+      mongoSwitch: { ...SWITCH, targets: mongoTargets.map((s) => s.id) },
+      services: config.services.map(({ cmd, env, ...rest }) => rest)
+    });
+  }
+
+  if (req.method === 'POST' && p === '/api/mongo-target') {
+    const { id } = await readBody(req);
+    if (!mongoTargets.some((s) => s.id === id)) return json(res, 400, { error: `${id} is not a MongoDB tunnel` });
+    return kick(res, switchMongo(id), `App DB → ${services.get(id).name}`);
   }
 
   if (req.method === 'GET' && p === '/events') {

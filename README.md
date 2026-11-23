@@ -32,6 +32,13 @@ No `npm install` needed (Node 22, no dependencies).
 - MongoDB Dev and QE are split cards: a **Read** lane (`*-tt-app-ro`) and a **Write** lane (`*-tt-app-rw`), each with its
   own port, Connect button, log and "in all" switch. The top bar and the R/W meter show which side is connected. Pair
   tunnels with `pair` + `access` in `config.js`.
+- **App DB** (top bar) picks which MongoDB tt-service, tt-pfd, tt-material-compliance and smart-segregation use. They
+  always connect to `127.0.0.1:27000`, and the runner forwards that port to the picked tunnel (Dev/QE read or write,
+  Training, Prod, Knit Prod). Picking one connects its tunnel (and hoop login) if needed and drops open connections, so
+  the driver reconnects to the new DB. Restart a running service if you want it to drop cached data. The pick is kept
+  across restarts (`logs/.mongo-target.json`).
+- **IntelliJ**: set `MONGODB_PORT=27000` in the run configuration once. After that you switch DBs from the runner, not
+  from IntelliJ. The runner has to be running for port 27000 to work.
 - Click a card to see its log. Logs are also kept in `logs/<id>.log`.
 
 ## Notes

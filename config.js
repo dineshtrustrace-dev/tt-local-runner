@@ -43,14 +43,20 @@ const MONGO_QE = { id: 'mongo-qe', name: 'MongoDB (QE)' };
 
 const MVN_FAST = 'mvn clean install -DskipTests -Dsonar.skip=true -Dfmt.skip=true';
 
+// App DB switch: the Java services always talk to MongoDB on this one port, and the runner forwards it to the
+// tunnel picked in the header ("App DB"). Set MONGODB_PORT=27000 once in IntelliJ and never touch it again.
+// `depId` in a card's `dependsOn` means "whichever MongoDB is picked"; `default` is used until you pick one.
+const MONGO_SWITCH = { port: 27000, depId: 'mongo-active', default: 'mongo' };
+
 // Shared env for Java services: point them at the hoop tunnels instead of VPN-only hosts.
 const JAVA_ENV = {
-  MONGODB_PORT: '27018',
+  MONGODB_PORT: String(MONGO_SWITCH.port),
   SPRING_ELASTICSEARCH_URIS: '127.0.0.1:8999' // host:port — the services' ElasticSearchConfig rejects a scheme
 };
 
 module.exports = {
   port: 7777,
+  mongoSwitch: MONGO_SWITCH,
 
   // Start the Podman machine when `node server.js` starts (it's also started on demand by container cards).
   startPodmanMachine: true,
@@ -93,7 +99,7 @@ module.exports = {
       access: 'rw',
       connection: 'dev-tt-app-rw',
       dependsOn: ['hoop-login'],
-      ports: [27018] // the Java services use this one (JAVA_ENV)
+      ports: [27018]
     },
     {
       id: 'mongo-dev-ro',
@@ -288,7 +294,7 @@ module.exports = {
       name: 'tt-service',
       detail: 'Spring profile: local',
       cwd: path.join(WS, 'tt-service'),
-      dependsOn: ['mongo', 'es', 'nexus', 'redis-stack'],
+      dependsOn: ['mongo-active', 'es', 'nexus', 'redis-stack'],
       ports: [5001],
       env: JAVA_ENV,
       build: 'mvn clean install -Dmaven.test.skip=true',
@@ -307,7 +313,7 @@ module.exports = {
       name: 'tt-material-compliance',
       detail: 'Spring profile: local',
       cwd: path.join(WS, 'tt-material-compliance'),
-      dependsOn: ['mongo', 'es', 'nexus'],
+      dependsOn: ['mongo-active', 'es', 'nexus'],
       ports: [8086],
       env: JAVA_ENV,
       build: MVN_FAST,
@@ -322,7 +328,7 @@ module.exports = {
       name: 'tt-pfd',
       detail: 'Spring profile: dev',
       cwd: path.join(WS, 'tt-pfd'),
-      dependsOn: ['mongo', 'es', 'nexus', 'redis-stack'],
+      dependsOn: ['mongo-active', 'es', 'nexus', 'redis-stack'],
       optionalDeps: ['docker-local'], // rabbitmq (+ etcd) — started if possible, not required
       ports: [8091],
       env: JAVA_ENV,
@@ -344,7 +350,7 @@ module.exports = {
       // Compiles UI (ng build) + API (nest build); the card shows whether the last build passed.
       build: 'npm run build:frontend && npm run build:backend',
       ides: ['vscode'],
-      dependsOn: ['mongo', 'es', 'nexus', 'tt-service', 'tt-pfd'],
+      dependsOn: ['mongo-active', 'es', 'nexus', 'tt-service', 'tt-pfd'],
       link: 'http://localhost:3585/api/docs',
       startTimeoutSec: 300
     },

@@ -552,7 +552,7 @@
       .lane[data-status='failed'] { background: var(--red-soft); }
       .lane.selected { box-shadow: inset 3px 0 0 var(--accent); }
       .lane > .dot { grid-row: span 2; align-self: start; margin-top: 6px; }
-      .lane-main { display: flex; align-items: center; gap: 7px; min-width: 0; }
+      .lane-main { display: flex; align-items: center; flex-wrap: wrap; gap: 5px 7px; min-width: 0; }
       .lane-tag { font-size: 10px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.07em; padding: 3px 8px; border-radius: 6px; flex: none; }
       .lane.ro .lane-tag { background: var(--accent-soft); color: var(--accent); }
       .lane.rw .lane-tag { background: var(--amber-soft); color: var(--amber); }
@@ -628,6 +628,72 @@
       #log-fab:hover { border-color: var(--accent); background: rgba(9, 12, 20, 0.96); }
       #log-fab .tick { font: 400 11.5px var(--mono); color: var(--log-muted); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; min-width: 0; }
 
+      /* ══ App DB switch ═══════════════════════════════════════════════ */
+      .appdb { position: relative; flex: none; }
+      .appdb[hidden] { display: none; }
+      .db-btn {
+        gap: 10px; height: 48px; padding: 5px 12px 5px 6px; border-radius: 14px; text-align: left;
+        background: var(--chip); border: 1px solid var(--border); font-weight: 500;
+      }
+      .db-btn:hover:not(:disabled) { background: var(--chip-2); }
+      .appdb.open .db-btn { border-color: var(--accent); box-shadow: 0 0 0 4px var(--accent-soft); }
+      .db-ico {
+        --d1: #10b981; --d2: #047857;
+        position: relative; width: 36px; height: 36px; border-radius: 11px; flex: none; display: grid; place-items: center; color: #fff;
+        background: linear-gradient(135deg, var(--d1), var(--d2)); box-shadow: 0 6px 16px -8px var(--d1), inset 0 1px 0 rgba(255,255,255,.25);
+      }
+      .db-ico svg { width: 18px; height: 18px; }
+      .db-ico .dot { position: absolute; right: -3px; bottom: -3px; width: 11px; height: 11px; border: 2px solid var(--panel-solid); }
+      .appdb[data-access='rw'] .db-ico { --d1: #f59e0b; --d2: #b45309; }
+      .appdb[data-env='prod'] .db-ico { --d1: #f87171; --d2: #b91c1c; }
+      .appdb[data-env='prod'] .db-btn { border-color: color-mix(in srgb, var(--red) 45%, transparent); background: var(--red-soft); }
+      .db-txt { display: flex; flex-direction: column; line-height: 1.2; min-width: 0; }
+      .db-txt small { font-size: 10px; color: var(--muted); text-transform: uppercase; letter-spacing: 0.08em; font-weight: 700; }
+      .db-txt b { font-size: 13.5px; font-weight: 700; white-space: nowrap; letter-spacing: -0.01em; }
+      .db-route { font: 600 11px var(--mono); color: var(--muted); white-space: nowrap; display: inline-flex; align-items: center; gap: 4px; }
+      .db-route .to { color: var(--faint); }
+      .db-route .tp { padding: 2px 6px; border-radius: 6px; background: var(--chip-2); color: var(--text); }
+      .db-route .tp.up { background: var(--green-soft); color: var(--green); }
+      .db-caret { color: var(--faint); transition: transform 0.2s; }
+      .appdb.open .db-caret { transform: rotate(180deg); }
+      .db-menu {
+        position: absolute; top: calc(100% + 10px); left: 0; z-index: 30; width: 380px; max-width: calc(100vw - 32px);
+        padding: 8px; border-radius: 16px; display: none;
+        background: var(--panel-solid); border: 1px solid var(--border-strong);
+        box-shadow: 0 28px 64px -20px rgba(0, 0, 0, 0.55);
+      }
+      .appdb.open .db-menu { display: block; animation: pop 0.18s cubic-bezier(.2,.8,.2,1) both; }
+      @keyframes pop { from { opacity: 0; transform: translateY(-6px) scale(0.98); } }
+      .db-head { padding: 8px 10px 10px; font-size: 12px; color: var(--muted); border-bottom: 1px solid var(--border); margin-bottom: 4px; }
+      .db-head b { color: var(--text); font-size: 13px; display: block; margin-bottom: 2px; }
+      .db-head code { font: 600 11px var(--mono); color: var(--accent); }
+      .db-grp { --ec: var(--accent); display: flex; align-items: center; gap: 7px; padding: 10px 10px 4px; font-size: 10.5px; font-weight: 700; letter-spacing: 0.08em; text-transform: uppercase; color: var(--ec); }
+      .db-grp::before { content: ''; width: 6px; height: 6px; border-radius: 50%; background: var(--ec); box-shadow: 0 0 8px var(--ec); }
+      .db-grp[data-env='qe'] { --ec: var(--cyan); }
+      .db-grp[data-env='training'] { --ec: var(--violet); }
+      .db-grp[data-env='prod'] { --ec: var(--red); }
+      .db-opt { width: 100%; justify-content: flex-start; gap: 10px; padding: 9px 10px; border: 0; border-radius: 10px; background: transparent; font-weight: 500; }
+      .db-opt:hover:not(:disabled) { background: var(--chip); border: 0; }
+      .db-opt.on { background: var(--accent-soft); }
+      .db-opt .lbl { flex: 1; text-align: left; overflow: hidden; text-overflow: ellipsis; }
+      .db-opt .acc { font-size: 9.5px; font-weight: 700; letter-spacing: 0.07em; text-transform: uppercase; padding: 2px 7px; border-radius: 6px; background: var(--accent-soft); color: var(--accent); }
+      .db-opt .acc.rw { background: var(--amber-soft); color: var(--amber); }
+      .db-opt .p { font: 500 11px var(--mono); color: var(--faint); min-width: 46px; text-align: right; }
+      .db-opt .chk { width: 16px; color: var(--accent); font-weight: 800; }
+      .db-opt .dot { width: 8px; height: 8px; }
+      .db-opt .dot::after { display: none; }
+      .db-foot { margin-top: 6px; padding: 10px 10px 6px; border-top: 1px solid var(--border); font-size: 11.5px; color: var(--muted); }
+      .db-foot.err { color: var(--red); }
+      /* The tunnel the App DB forwards to, on its card */
+      .port.active { color: #fff; background: linear-gradient(135deg, var(--accent), var(--accent-2)); font-weight: 600; }
+      .port.active.open { background: linear-gradient(135deg, var(--green), #059669); }
+      .port.active::after { content: 'App DB'; font: 700 9px Inter, sans-serif; letter-spacing: 0.05em; text-transform: uppercase; opacity: 0.9; }
+      .lane .port.active::after { content: none; }
+      .lane.is-appdb .lane-tag::after { content: ' · App DB'; }
+      .dep.appdb-dep { color: var(--accent); background: var(--accent-soft); }
+      .dep.appdb-dep.ok { color: var(--green); background: var(--green-soft); }
+      .dep.appdb-dep b { font-weight: 700; }
+
       /* ══ Toasts ═══════════════════════════════════════════════════════ */
       #toasts { position: fixed; left: 50%; bottom: 22px; transform: translateX(-50%); z-index: 9; display: flex; flex-direction: column; gap: 8px; align-items: center; pointer-events: none; }
       .toast {
@@ -644,9 +710,18 @@
       @keyframes toastout { to { opacity: 0; transform: translateY(8px) scale(0.97); } }
 
       /* ══ Responsive ═══════════════════════════════════════════════════ */
-      @media (max-width: 1500px) {
+      @media (max-width: 1720px) {
+        header { gap: 12px; }
+        .db-route { display: none; }
+        .search kbd { display: none; }
+        .stat { min-width: 0; padding: 3px 10px; }
         .stats .pill span:last-child { display: none; }
         .stats .pill { padding: 6px 10px; }
+      }
+      @media (max-width: 1500px) {
+        .brand-sub { display: none; }
+        #stop-all .lbl { display: none; }
+        #stop-all { padding: 9px 12px; }
       }
       @media (max-width: 1100px) {
         .shell { grid-template-columns: minmax(0, 1fr); grid-template-rows: minmax(0, 1fr) var(--log-h); }
@@ -663,7 +738,11 @@
         .toolbar { margin: 0 -16px 6px; padding: 12px 16px 10px; }
         .stats { order: 3; width: 100%; overflow-x: auto; }
         .stat-sep, .stats .pill { display: none; }
+        .appdb { order: 3; width: 100%; }
+        .db-btn { width: 100%; }
+        .db-caret { margin-left: auto; }
         header > button { order: 5; flex: 1; }
+        #stop-all .lbl { display: inline; }
         .tabs, .tools { width: 100%; }
         header .search { order: 4; flex: 1 1 100%; }
         header > .spacer { display: none; }
@@ -713,6 +792,15 @@
         <div class="stat fail zero" id="st-fail"><b>0</b><span>Failed</span></div>
         <span class="stat-sep"></span>
         <span class="pill" id="podman-pill" title="Podman machine"><span class="dot" id="podman-dot"></span><span id="podman-text">Podman: …</span></span>
+      </div>
+      <div class="appdb" id="appdb" hidden>
+        <button class="db-btn" id="db-btn" aria-haspopup="true" aria-expanded="false" title="Pick the MongoDB the Java services use (D)">
+          <span class="db-ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><ellipse cx="12" cy="5.5" rx="7.5" ry="3" /><path d="M4.5 5.5v13c0 1.66 3.36 3 7.5 3s7.5-1.34 7.5-3v-13" /><path d="M4.5 12c0 1.66 3.36 3 7.5 3s7.5-1.34 7.5-3" /></svg><span class="dot" id="db-dot"></span></span>
+          <span class="db-txt"><small>App DB</small><b id="db-name">…</b></span>
+          <span class="db-route" id="db-route"></span>
+          <svg class="i db-caret" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="m6 9 6 6 6-6" /></svg>
+        </button>
+        <div class="db-menu" id="db-menu" role="menu"></div>
       </div>
       <span class="spacer"></span>
         <label class="search" title="Search (press /)">
@@ -873,7 +961,10 @@
         const deps = [...(s.dependsOn || []).map((d) => [d, false]), ...(s.optionalDeps || []).map((d) => [d, true])];
         if (!deps.length) return '';
         return `<div class="deps"><span class="deps-l">Needs</span>${deps
-          .map(([d, opt]) => `<span class="dep${opt ? ' opt' : ''}" data-dep="${d}" title="${esc(svcName(d))}${opt ? ' (optional)' : ''}"><i class="dot"></i>${esc(svcName(d))}</span>`)
+          .map(([d, opt]) =>
+            cfg.mongoSwitch && d === cfg.mongoSwitch.depId
+              ? `<span class="dep appdb-dep" data-dep="${d}" title="App DB: whichever MongoDB is picked at the top"><i class="dot"></i><b>App DB</b><span class="t"></span></span>`
+              : `<span class="dep${opt ? ' opt' : ''}" data-dep="${d}" title="${esc(svcName(d))}${opt ? ' (optional)' : ''}"><i class="dot"></i>${esc(svcName(d))}</span>`)
           .join('')}</div>`;
       };
 
@@ -1127,13 +1218,17 @@
           if (!el) continue;
           if (s.status === 'running') up++;
           el.dataset.status = s.status;
+          el.classList.toggle('is-appdb', !!(msg.mongo && msg.mongo.target === s.id));
           el.querySelector('.dot').className = `dot ${s.status}`;
           const m = el.querySelector('.msg');
           m.className = `msg ${s.status}`;
           m.textContent = s.message || '';
           m.title = s.message || '';
           el.querySelector('.ports').innerHTML = s.ports
-            .map((p) => `<span class="port ${p.open ? 'open' : ''}" title="${p.open ? 'Listening' : 'Not listening'}">:${p.port}</span>`)
+            .map((p, i) => {
+              const active = i === 0 && msg.mongo && msg.mongo.target === s.id;
+              return `<span class="port${p.open ? ' open' : ''}${active ? ' active' : ''}" title="${active ? `App DB: the Java services reach this tunnel via :${msg.mongo.port}` : p.open ? 'Listening' : 'Not listening'}">:${p.port}</span>`;
+            })
             .join('');
           const t = el.querySelector('[data-act=toggle]');
           const def = cfg.services.find((x) => x.id === s.id);
@@ -1184,7 +1279,10 @@
         }
         // Dependency chips follow the live status of what they point at.
         $$('.dep').forEach((d) => {
-          const st = (status[d.dataset.dep] || {}).status || 'stopped';
+          const isDb = d.classList.contains('appdb-dep');
+          const id = isDb && msg.mongo ? msg.mongo.target : d.dataset.dep;
+          if (isDb) d.querySelector('.t').textContent = msg.mongo ? ` · ${dbLabel(svcById(id))}` : '';
+          const st = (status[id] || {}).status || 'stopped';
           d.querySelector('.dot').className = `dot ${st}`;
           d.classList.toggle('ok', st === 'running');
         });
@@ -1257,8 +1355,73 @@
           e.textContent = n || '';
         }
         applyFilters();
+        applyDb(msg.mongo);
         updateTabIdentity(msg, up);
       }
+
+      // ── App DB: which MongoDB the services' fixed port (27000) forwards to ──
+      const svcById = (id) => cfg.services.find((x) => x.id === id);
+      // "MongoDB (Dev) · write" → "Dev · write"
+      const dbLabel = (s) => (s ? s.name.replace(/^MongoDB\s*/, '').replace(/[()]/g, '') : '');
+      let dbState = null;
+      function renderDbMenu() {
+        const sw = cfg.mongoSwitch;
+        if (!sw) return;
+        const targets = sw.targets.map(svcById).filter(Boolean);
+        const groups = [...new Set(targets.map((s) => s.group || ''))];
+        $('#db-menu').innerHTML =
+          `<div class="db-head"><b>Which database should the services use?</b>tt-service, tt-pfd, tt-material-compliance and smart-segregation connect to <code>127.0.0.1:${sw.port}</code>. The runner forwards that port to the tunnel you pick here.</div>` +
+          groups
+            .map((g) => `<div class="db-grp" data-env="${esc(g.toLowerCase())}">${esc(g || 'Other')}</div>` +
+              targets.filter((s) => (s.group || '') === g).map((s) =>
+                `<button class="db-opt" role="menuitemradio" data-db="${s.id}"><span class="chk"></span><i class="dot"></i><span class="lbl">${esc(dbLabel(s))}</span><span class="acc ${s.access === 'rw' ? 'rw' : ''}">${s.access === 'rw' ? 'Write' : 'Read'}</span><span class="p">:${s.ports[0]}</span></button>`).join(''))
+            .join('') +
+          `<div class="db-foot" id="db-foot"></div>`;
+        $('#appdb').hidden = false;
+      }
+      function applyDb(m) {
+        if (!m || !cfg.mongoSwitch) return;
+        dbState = m;
+        const s = svcById(m.target);
+        const st = status[m.target] || {};
+        const box = $('#appdb');
+        box.dataset.env = /prod/i.test(s.group || '') ? 'prod' : '';
+        box.dataset.access = s.access || 'ro';
+        $('#db-name').textContent = dbLabel(s);
+        $('#db-dot').className = `dot ${m.error ? 'failed' : st.status || 'stopped'}`;
+        $('#db-route').innerHTML = `<span>:${m.port}</span><span class="to">→</span><span class="tp${st.status === 'running' ? ' up' : ''}">:${s.ports[0]}</span>`;
+        $('#db-btn').title = m.error
+          ? `App DB forwarder is down: ${m.error}`
+          : `Services use ${s.name} via 127.0.0.1:${m.port} → :${s.ports[0]}\nTunnel: ${st.message || st.status || '…'} · ${m.connections} open connection(s)\nClick or press D to switch`;
+        $$('#db-menu .db-opt').forEach((o) => {
+          const on = o.dataset.db === m.target;
+          o.classList.toggle('on', on);
+          o.setAttribute('aria-checked', on);
+          o.querySelector('.chk').textContent = on ? '✓' : '';
+          o.querySelector('.dot').className = `dot ${(status[o.dataset.db] || {}).status || 'stopped'}`;
+        });
+        const foot = $('#db-foot');
+        foot.classList.toggle('err', !!m.error);
+        foot.textContent = m.error
+          ? `✗ Forwarder down: ${m.error}`
+          : `${m.connections} open connection${m.connections === 1 ? '' : 's'}. Switching drops them so the drivers reconnect; restart a service to clear cached data.`;
+      }
+      const setDbMenu = (open) => {
+        $('#appdb').classList.toggle('open', open);
+        $('#db-btn').setAttribute('aria-expanded', open);
+      };
+      $('#db-btn').onclick = (e) => { e.stopPropagation(); setDbMenu(!$('#appdb').classList.contains('open')); };
+      document.addEventListener('click', (e) => { if (!e.target.closest('#appdb')) setDbMenu(false); });
+      $('#db-menu').onclick = (e) => {
+        const o = e.target.closest('.db-opt');
+        if (!o) return;
+        const s = svcById(o.dataset.db);
+        setDbMenu(false);
+        if (dbState && dbState.target === s.id) return;
+        if (/prod/i.test(s.group || '') && !confirm(`Point the services at PRODUCTION data (${dbLabel(s)})?`)) return;
+        post('/api/mongo-target', { id: s.id }).then((ok) => ok && toast(`App DB → ${dbLabel(s)} (:${s.ports[0]})`, 'ok'));
+        selectLog('runner');
+      };
 
       // ── Tab title + favicon follow the overall state ─────────────────
       // Priority: failed (red) > starting / building (amber) > something up (green) > idle (grey).
@@ -1389,7 +1552,7 @@
       };
 
       $('#run-all').onclick = () => post('/api/run-all', { ids: included }).then((ok) => { if (ok) toast(`Starting ${included.length} services…`); selectLog('runner'); });
-      $('#stop-all').innerHTML = `${I.stop}Stop all`;
+      $('#stop-all').innerHTML = `${I.stop}<span class="lbl">Stop all</span>`;
       $('#stop-all').title = 'Stop every service and disconnect all hoop tunnels';
       $('#stop-all').onclick = () => {
         if (confirm('Stop every service and disconnect all hoop tunnels?')) post('/api/stop-all').then((ok) => { if (ok) toast('Stopping everything…'); selectLog('runner'); });
@@ -1398,6 +1561,7 @@
       // ── Keyboard: / search · Esc clear · L logs · 1-9 tabs ───────────
       document.addEventListener('keydown', (e) => {
         const typing = /INPUT|SELECT|TEXTAREA/.test(document.activeElement.tagName);
+        if (e.key === 'Escape' && $('#appdb').classList.contains('open')) { setDbMenu(false); return; }
         if (e.key === 'Escape') {
           if ($('#search').value || document.activeElement === $('#search')) { $('#search').value = ''; $('#search').blur(); }
           else if (stateFilter !== 'all') { stateFilter = 'all'; store.set('stateFilter', stateFilter); }
@@ -1410,6 +1574,7 @@
         }
         if (e.key === '/') { e.preventDefault(); $('#search').focus(); }
         else if (e.key.toLowerCase() === 'l') toggleLogs();
+        else if (e.key.toLowerCase() === 'd' && !$('#appdb').hidden) setDbMenu(!$('#appdb').classList.contains('open'));
         else if (/^[1-9]$/.test(e.key)) { const t = $$('#tabs .tab')[+e.key - 1]; if (t) t.click(); }
       });
 
@@ -1428,6 +1593,7 @@
         for (const s of cfg.services) for (const c of s.containers || []) logOwner[c.name] = s.id;
         for (const s of cfg.services) if (s.pair) logOwner[s.id] = s.pair.id;
         renderSections();
+        renderDbMenu();
         updateRunAll();
         selectLog('runner');
         const es = new EventSource('/events');
