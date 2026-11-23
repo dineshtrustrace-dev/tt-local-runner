@@ -36,6 +36,8 @@ No `npm install` needed (Node 22, no dependencies).
 
 ## Notes
 
+- `node server.js` also starts the Podman machine if it's stopped (progress in the **Runner** log). Set
+  `startPodmanMachine: false` in `config.js` to skip that.
 - Processes are started detached, so restarting `server.js` does not kill them; they're re-adopted by port.
 - Dev, QE, Training and Prod each have their own hoop login. QE's, Training's and Prod's hoop config/token live in
   `~/.hoop-qe`, `~/.hoop-qa` and `~/.hoop-prod` (hoop runs with that as `HOME`), so all sessions stay logged in at once. A failed login only skips

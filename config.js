@@ -52,6 +52,9 @@ const JAVA_ENV = {
 module.exports = {
   port: 7777,
 
+  // Start the Podman machine when `node server.js` starts (it's also started on demand by container cards).
+  startPodmanMachine: true,
+
   // Editors offered on every card with a `cwd` — opened with `open -a <app> <cwd>` (macOS app names).
   ides: {
     intellij: { label: 'IntelliJ', app: 'IntelliJ IDEA' },

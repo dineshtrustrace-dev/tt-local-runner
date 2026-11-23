@@ -263,13 +263,26 @@ function followContainerLogs(name) {
   child.on('exit', () => logFollowers.delete(name));
 }
 
-async function ensurePodmanMachine() {
-  await refreshPodman();
-  if (podmanMachine === 'running') return true;
-  runnerLog('Podman machine is not running — starting it');
-  const ok = await runLogged(RUNNER_LOG, 'podman', ['machine', 'start']);
-  await refreshPodman();
-  return ok && podmanMachine === 'running';
+// Single-flight: the boot-time start and a Run & connect all / container start share one `podman machine start`.
+let podmanStarting = null;
+function ensurePodmanMachine() {
+  if (!podmanStarting) {
+    podmanStarting = (async () => {
+      await refreshPodman();
+      if (podmanMachine === 'running') return true;
+      if (podmanMachine === 'not available') {
+        runnerLog('✗ podman not found — install it or add it to PATH');
+        return false;
+      }
+      runnerLog('Podman machine is not running — starting it');
+      const ok = await runLogged(RUNNER_LOG, 'podman', ['machine', 'start']);
+      await refreshPodman();
+      const up = ok && podmanMachine === 'running';
+      runnerLog(up ? '✓ Podman machine running' : `✗ Podman machine did not start (${podmanMachine})`);
+      return up;
+    })().finally(() => (podmanStarting = null));
+  }
+  return podmanStarting;
 }
 
 // ─── Hoop login ─────────────────────────────────────────────────────────
@@ -813,6 +826,13 @@ const server = http.createServer(async (req, res) => {
 server.listen(config.port, '127.0.0.1', () => {
   runnerLog(`Runner started on http://localhost:${config.port}`);
   console.log(`TT Local Runner → http://localhost:${config.port}`);
+  // Bring the Podman machine up with the runner (set `startPodmanMachine: false` in config.js to skip).
+  if (config.startPodmanMachine !== false) {
+    console.log('Checking Podman machine…');
+    ensurePodmanMachine()
+      .then((up) => console.log(up ? 'Podman machine running' : `Podman machine not started (${podmanMachine}) — see the Runner log`))
+      .catch((e) => console.log(`Podman machine start failed: ${e.message}`));
+  }
 });
 
 setInterval(pumpLogs, 500);
