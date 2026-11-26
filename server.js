@@ -324,6 +324,7 @@ async function refreshHoopLogin(login, force = false) {
   hoopCheckedAt.set(login.id, Date.now());
   const r = await run(HOOP, ['admin', 'get', 'connections'], { timeout: 15000, env: hoopEnv(login) });
   hoopLoggedIn.set(login.id, r.ok);
+  if (r.ok) autoLoginTried.delete(login.id);
 }
 
 const refreshHoopLogins = (force = false) => Promise.all(hoopLogins().map((l) => refreshHoopLogin(l, force)));
@@ -337,6 +338,73 @@ async function ensureHoopConfig(login) {
   if (current.includes(login.apiUrl)) return;
   fs.mkdirSync(login.hoopHome, { recursive: true });
   await runLogged(login.id, HOOP, ['config', 'create', '--api-url', login.apiUrl], { env: hoopEnv(login) });
+}
+
+// ─── Hoop auto-reconnect ────────────────────────────────────────────────
+// Every tunnel seen up is "wanted" until you stop it from the runner. A wanted tunnel that goes down (hoop exits on
+// gateway timeouts / RST_STREAM / expired tokens) is reconnected with backoff; if the session expired, the browser
+// login is opened once and the tunnels follow once it succeeds. Kept in memory only: after a runner restart, the
+// tunnels already up are adopted, so a fresh start never pops browser logins for tunnels you weren't using.
+
+const hoopWanted = new Set();
+function setWanted(id, on) {
+  if (hoopWanted.has(id) === on) return;
+  on ? hoopWanted.add(id) : hoopWanted.delete(id);
+  reconnects.delete(id);
+}
+
+const RECONNECT_DELAYS = [2, 5, 10, 20, 30, 60]; // seconds; stays at the last one
+/** id → { attempts, nextAt, note } */
+const reconnects = new Map();
+const reconnecting = new Set(); // attempts in flight
+const autoLoginTried = new Set(); // login ids whose browser login was already opened since the session expired
+
+async function reconnectHoop(svc) {
+  const id = svc.id;
+  const r = reconnects.get(id) || { attempts: 0, nextAt: 0 };
+  reconnects.set(id, r);
+  const login = loginOf(svc);
+  if (r.attempts === 0 && login) await refreshHoopLogin(login, true); // first try after a drop: is the session still good?
+  if (login && !hoopLoggedIn.get(login.id)) {
+    r.nextAt = Date.now() + 5000; // re-checked cheaply; a successful login refreshes the status immediately
+    if (config.hoopAutoLogin !== false && !autoLoginTried.has(login.id) && !state.get(login.id).busy) {
+      autoLoginTried.add(login.id);
+      r.note = `${login.name} expired — opening browser login…`;
+      appendLog(id, `[runner] ${r.note}`);
+      runnerLog(`${svc.name} dropped: ${login.name} expired — opening browser login, will reconnect after`);
+      ensureUp(login.id).catch((e) => runnerLog(`✗ ${login.name} auto-login: ${e.message} — log in from its card to reconnect`));
+    } else if (!state.get(login.id).busy) {
+      r.note = `${login.name} expired — log in to reconnect`;
+    }
+    return;
+  }
+  r.attempts++;
+  r.note = `Connection dropped — reconnecting (attempt ${r.attempts})…`;
+  const delay = RECONNECT_DELAYS[Math.min(r.attempts, RECONNECT_DELAYS.length) - 1];
+  r.nextAt = Date.now() + delay * 1000;
+  appendLog(id, `[runner] connection dropped — reconnecting (attempt ${r.attempts})`);
+  if (r.attempts === 1) runnerLog(`${svc.name} dropped — reconnecting`);
+  if (hoopWanted.has(id)) await startService(id); // not stopped meanwhile
+}
+
+/** Runs after each status refresh: kicks a reconnect for every wanted tunnel that is down. */
+function superviseHoop() {
+  for (const id of hoopWanted) {
+    const svc = services.get(id);
+    const st = state.get(id);
+    const r = reconnects.get(id);
+    if (st.status === 'running') {
+      if (r && r.attempts) runnerLog(`✓ ${svc.name} reconnected`);
+      if (r) reconnects.delete(id);
+      continue;
+    }
+    if (st.busy || st.pid || st.waitingFor || ensuring.has(id) || reconnecting.has(id)) continue;
+    if (r && Date.now() < r.nextAt) continue;
+    reconnecting.add(id);
+    reconnectHoop(svc)
+      .catch((e) => appendLog(id, `[runner] reconnect failed: ${e.message}`))
+      .finally(() => reconnecting.delete(id));
+  }
 }
 
 // Browser logins share hoop's callback port (:3587), so only one runs at a time.
@@ -438,9 +506,17 @@ async function computeStatus(svc) {
   const pid = pids[svc.id];
   st.pid = alive(pid) ? pid : null;
   st.managed = !!st.pid;
-  if (allUp) return set(st, 'running', st.managed ? 'Running' : 'Running (started outside runner)');
+  st.reconnecting = false;
+  if (allUp) {
+    if (svc.kind === 'hoop') setWanted(svc.id, true);
+    return set(st, 'running', st.managed ? 'Running' : 'Running (started outside runner)');
+  }
   if (st.pid) return set(st, 'starting', anyUp ? 'Partially up…' : 'Starting…');
   if (st.busy) return set(st, 'starting', 'Starting…');
+  if (svc.kind === 'hoop' && hoopWanted.has(svc.id)) {
+    st.reconnecting = true;
+    return set(st, 'starting', (reconnects.get(svc.id) || {}).note || 'Connection dropped — reconnecting…');
+  }
   if (st.lastExit && st.lastExit.code !== 0 && st.lastExit.signal == null) {
     return set(st, 'failed', `Exited with code ${st.lastExit.code} — check log`);
   }
@@ -478,6 +554,7 @@ function snapshot() {
 async function refreshAll() {
   await Promise.all([refreshPodman(), refreshHoopLogins()]);
   await Promise.all(config.services.map(computeStatus));
+  superviseHoop();
   broadcast(snapshot());
 }
 
@@ -488,7 +565,7 @@ async function startService(id) {
   const st = state.get(id);
   if (!svc) throw new Error(`Unknown service ${id}`);
   await computeStatus(svc);
-  if (st.status === 'running' || (st.status === 'starting' && !st.busy)) return;
+  if (st.status === 'running' || (st.status === 'starting' && !st.busy && !st.reconnecting)) return;
   st.busy = true;
   st.lastExit = null;
   try {
@@ -534,6 +611,9 @@ async function stopService(id) {
     appendLog(id, '[runner] start cancelled');
     return;
   }
+  // Stopped on purpose: don't reconnect it (and after a logout, none of that login's tunnels).
+  if (svc.kind === 'hoop') setWanted(id, false);
+  if (svc.kind === 'hoop-login') for (const t of config.services) if (t.kind === 'hoop' && loginOf(t) === svc) setWanted(t.id, false);
   st.busy = true;
   try {
     if (svc.kind === 'hoop-login') {

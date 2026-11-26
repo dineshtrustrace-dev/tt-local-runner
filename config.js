@@ -61,6 +61,11 @@ module.exports = {
   // Start the Podman machine when `node server.js` starts (it's also started on demand by container cards).
   startPodmanMachine: true,
 
+  // A hoop tunnel that drops (network blip, gateway reset) is reconnected automatically. When the drop is an expired
+  // session, the browser login is opened once on its own (SSO usually completes without a click) and the dropped
+  // tunnels reconnect after it. Set to false to only reconnect on network drops and log in yourself.
+  hoopAutoLogin: true,
+
   // Editors offered on every card with a `cwd` — opened with `open -a <app> <cwd>` (macOS app names).
   ides: {
     intellij: { label: 'IntelliJ', app: 'IntelliJ IDEA' },
